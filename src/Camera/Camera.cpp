@@ -1,34 +1,58 @@
-#include <fmt/core.h>
+
+#include "Camera.h"
+
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/videodev2.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 
- #include <assert.h>
- #include <errno.h>
- #include <fcntl.h>
- #include <linux/videodev2.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
- #include <sys/ioctl.h>
- #include <sys/mman.h>
- #include <sys/time.h>
- #include <unistd.h>
  
- static const char DEVICE[] = "/dev/video0";
+    Camera::Camera(char* device)
+    {
+        this->device = device;
+    }
+
+    void Camera::update()
+    {
+
+        fd_set fds;
+         struct timeval tv;
+         int r;
  
- int fd = -1;
- struct buffer {
-     void *start;
-     size_t length;
- };
+         FD_ZERO(&fds);
+         FD_SET(fd, &fds);
  
- struct buffer *buffers = NULL;
- unsigned int num_buffers = 0;
- struct v4l2_requestbuffers reqbuf = {0};
+         tv.tv_sec = 2;
+         tv.tv_usec = 0;
  
- /**
-  * Wrapper around ioctl calls.
-  */
- static int xioctl(int fd, int request, void *arg) {
+         r = select(fd + 1, &fds, NULL, NULL, &tv);
+ 
+         if (-1 == r) {
+             if (EINTR == errno)
+                 return;
+ 
+             perror("select");
+             exit(errno);
+         }
+ 
+         if (0 == r) {
+             fprintf(stderr, "select timeout\n");
+             exit(EXIT_FAILURE);
+         }
+ 
+         if (read_frame())
+             return;
+
+    }
+    int Camera::xioctl(int fd, int request, void *arg) {
      int r;
  
      do {
@@ -38,7 +62,7 @@
      return r;
  }
  
- static void init_mmap(void) {
+ void Camera::init_mmap(void) {
      reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
      reqbuf.memory = V4L2_MEMORY_MMAP;
      reqbuf.count = 5;
@@ -89,7 +113,14 @@
      }
  }
  
- static void init_device() {
+ bool Camera::init_device() {
+
+    fd = open(device, O_RDWR);
+        if (fd < 0) {
+            perror(device);
+            return false;
+        }
+
      struct v4l2_fmtdesc fmtdesc = {0};
      fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
  
@@ -128,7 +159,7 @@
      init_mmap();
  }
  
- static void start_capturing(void) {
+ void Camera::start_capturing(void) {
      enum v4l2_buf_type type;
      struct v4l2_buffer buffer;
  
@@ -151,13 +182,24 @@
      }
  }
  
- static void stop_capturing(void) {
+ void Camera::stop_capturing(void) {
      enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
  
      if (-1 == xioctl(fd, VIDIOC_STREAMOFF, &type)) {
          perror("VIDIOC_STREAMOFF");
          exit(errno);
      }
+
+
+
+    for (unsigned int i = 0; i < num_buffers; i++) {
+        if (buffers[i].start) {
+            munmap(buffers[i].start, buffers[i].length);
+        }
+    }
+     
+     free(buffers);
+     close(fd);
  }
  
  /**
@@ -165,7 +207,7 @@
   *
   * Normally, the buffer would be processed here.
   */
- static void process_image(const void *pBuffer) {
+ void Camera::process_image(const void *pBuffer) {
      fputc('.', stdout);
      fflush(stdout);
  }
@@ -173,7 +215,7 @@
  /**
   * Readout a frame from the buffers.
   */
- static int read_frame(void) {
+ int Camera::read_frame(void) {
      struct v4l2_buffer buffer;
      memset(&buffer, 0, sizeof(buffer));
      buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -200,68 +242,5 @@
      }
  
      return 1;
- }
- 
- /**
-  * Poll the device until it is ready for reading.
-  */
- static void main_loop(void) {
-     unsigned int count = 100;
-     while (count-- > 0) {
-         fd_set fds;
-         struct timeval tv;
-         int r;
- 
-         FD_ZERO(&fds);
-         FD_SET(fd, &fds);
- 
-         tv.tv_sec = 2;
-         tv.tv_usec = 0;
- 
-         r = select(fd + 1, &fds, NULL, NULL, &tv);
- 
-         if (-1 == r) {
-             if (EINTR == errno)
-                 continue;
- 
-             perror("select");
-             exit(errno);
-         }
- 
-         if (0 == r) {
-             fprintf(stderr, "select timeout\n");
-             exit(EXIT_FAILURE);
-         }
- 
-         if (read_frame())
-             continue;
-     }
- }
- 
- int main(void) {
-     fd = open(DEVICE, O_RDWR);
-     if (fd < 0) {
-         perror(DEVICE);
-         return errno;
-     }
- 
-     init_device();
- 
-     start_capturing();
- 
-     main_loop();
- 
-     stop_capturing();
- 
-     for (unsigned int i = 0; i < num_buffers; i++) {
-         if (buffers[i].start) {
-             munmap(buffers[i].start, buffers[i].length);
-         }
-     }
-     free(buffers);
-     close(fd);
- 
-     printf("\n\nDone.\n");
-     return 0;
  }
  

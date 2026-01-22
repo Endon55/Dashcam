@@ -6,3 +6,13 @@ To then build the executable run
     cmake --build build
 Telling the compiler to build the project in the build dir
 
+Ninja is required for building the base project
+    sudo apt install ninja-build
+
+These are the packages needed to build SDL3
+    sudo apt install autoconf autoconf-archive automake libtool
+    sudo apt-get install libxtst-dev
+    sudo apt install python3.12-venv
+
+
+
