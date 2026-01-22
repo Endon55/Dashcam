@@ -1,0 +1,8 @@
+To build for the first time you must run
+    cmake --preset=default
+first.
+
+To then build the executable run
+    cmake --build build
+Telling the compiler to build the project in the build dir
+
