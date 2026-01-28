@@ -17,9 +17,10 @@ class Camera
         struct buffer *buffers;
         unsigned int num_buffers = 0;
         struct v4l2_requestbuffers reqbuf = {0};
-    
-    public:
-        Camera(char* device);
+        bool (*frame_callback_func)(buffer*);
+        struct v4l2_buffer *previous_buffer;
+
+        public : Camera(char *device, bool (*frame_callback_func)(buffer*));
         void update();
         bool init_device();
         void start_capturing(void);
@@ -28,8 +29,8 @@ class Camera
     private:
         int xioctl(int fd, int request, void *arg);
         void init_mmap(void);
-        void process_image(const void *pBuffer);
-        int read_frame(void);
+        bool process_image(buffer *pBuffer);
+        int read_frame();
 
 
 };

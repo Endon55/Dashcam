@@ -12,44 +12,46 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <iostream>
 
-
- 
-    Camera::Camera(char* device)
-    {
-        this->device = device;
-    }
+Camera::Camera(char *device, bool (*frame_callback_func)(buffer*))
+{
+    this->frame_callback_func = frame_callback_func;
+    this->device = device;
+}
 
     void Camera::update()
     {
 
         fd_set fds;
-         struct timeval tv;
-         int r;
- 
-         FD_ZERO(&fds);
-         FD_SET(fd, &fds);
- 
-         tv.tv_sec = 2;
-         tv.tv_usec = 0;
- 
-         r = select(fd + 1, &fds, NULL, NULL, &tv);
- 
-         if (-1 == r) {
-             if (EINTR == errno)
-                 return;
- 
-             perror("select");
-             exit(errno);
-         }
- 
-         if (0 == r) {
-             fprintf(stderr, "select timeout\n");
-             exit(EXIT_FAILURE);
-         }
- 
-         if (read_frame())
-             return;
+        struct timeval tv;
+        int r;
+
+        FD_ZERO(&fds);
+        FD_SET(fd, &fds);
+
+        tv.tv_sec = 2;
+        tv.tv_usec = 0;
+    
+        r = select(fd + 1, &fds, NULL, NULL, &tv);
+
+        if (-1 == r) {
+            if (EINTR == errno)
+                return;
+
+            perror("select");
+            exit(errno);
+        }
+
+        if (0 == r) {
+            fprintf(stderr, "select timeout\n");
+            exit(EXIT_FAILURE);
+        }
+
+        while (read_frame() != 1)
+        {
+            return;
+        }
 
     }
     int Camera::xioctl(int fd, int request, void *arg) {
@@ -66,23 +68,20 @@
      reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
      reqbuf.memory = V4L2_MEMORY_MMAP;
      reqbuf.count = 5;
- 
+    cout << "Init MMAP2" << endl;
      if (-1 == xioctl(fd, VIDIOC_REQBUFS, &reqbuf)) {
          perror("VIDIOC_REQBUFS");
          exit(errno);
      }
- 
      if (reqbuf.count < 2) {
          fprintf(stderr, "Not enough buffer memory\n");
          exit(EXIT_FAILURE);
      }
- 
      buffers = (struct buffer *)calloc(reqbuf.count, sizeof(struct buffer));
      if (!buffers) {
          perror("calloc");
          exit(EXIT_FAILURE);
      }
- 
      num_buffers = reqbuf.count;
  
      struct v4l2_buffer buffer;
@@ -121,20 +120,12 @@
             return false;
         }
 
-     struct v4l2_fmtdesc fmtdesc = {0};
-     fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
- 
-     while (0 == xioctl(fd, VIDIOC_ENUM_FMT, &fmtdesc)) {
-         fmtdesc.index++;
-     }
-     printf("\nUsing format: %s\n", fmtdesc.description);
- 
      struct v4l2_format fmt = {0};
      fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
  
-     fmt.fmt.pix.width = 640;
-     fmt.fmt.pix.height = 480;
-     fmt.fmt.pix.pixelformat = fmtdesc.pixelformat;
+     fmt.fmt.pix.width = 3840;
+     fmt.fmt.pix.height = 2160;
+     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
      fmt.fmt.pix.field = V4L2_FIELD_NONE;
  
      if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt)) {
@@ -157,6 +148,7 @@
          fmt.fmt.pix.field);
  
      init_mmap();
+     return true;
  }
  
  void Camera::start_capturing(void) {
@@ -202,20 +194,14 @@
      close(fd);
  }
  
- /**
-  * Draws a dot on the screen.
-  *
-  * Normally, the buffer would be processed here.
-  */
- void Camera::process_image(const void *pBuffer) {
-     fputc('.', stdout);
-     fflush(stdout);
+
+ bool Camera::process_image(buffer *buf) {
+    fputc('.', stdout);
+    fflush(stdout);
+    return frame_callback_func(buf);
  }
- 
- /**
-  * Readout a frame from the buffers.
-  */
- int Camera::read_frame(void) {
+
+ int Camera::read_frame() {
      struct v4l2_buffer buffer;
      memset(&buffer, 0, sizeof(buffer));
      buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -227,19 +213,28 @@
              return 0;
          case EIO:
          default:
-             perror("VIDIOC_DQBUF");
+             perror("VIDIOC_DQBUF _ Read Frame");
              exit(errno);
          }
      }
- 
+
+
      assert(buffer.index < num_buffers);
- 
-     process_image(buffers[buffer.index].start);
- 
-     if (-1 == xioctl(fd, VIDIOC_QBUF, &buffer)) {
-         perror("VIDIOC_QBUF");
-         exit(errno);
+     buffers[buffer.index].length = buffer.bytesused;
+     if(process_image(&buffers[buffer.index]))
+     {
+        if(previous_buffer != NULL)
+        {
+            if (-1 == xioctl(fd, VIDIOC_QBUF, &buffer))
+            {
+                perror("VIDIOC_QBUF _ Read Frame");
+                exit(errno);
+            }
+        }
+        previous_buffer = &buffer;
      }
+ 
+
  
      return 1;
  }

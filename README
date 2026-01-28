@@ -16,3 +16,4 @@ These are the packages needed to build SDL3
 
 
 
+ffplay -f video4linux2 -i -pixel_format mjpeg -video_size 3840x2160 /dev/video0
