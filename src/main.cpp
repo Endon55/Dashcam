@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <chrono>
 #include <thread>
+#include <turbojpeg.h>
 
 using namespace std;
 
@@ -29,6 +30,10 @@ struct AppState
    int height;
    int camera_count;
    int pitch = -1;
+   long unsigned int _jpegSize;
+   int jpegSubsamp;
+   unsigned char *decomp_buffer;
+   tjhandle _jpegDecompressor;
 };
 
 AppState *app_state;
@@ -52,11 +57,18 @@ SDL_AppResult init(AppState *app_state, int argc, char **argv)
       return SDL_APP_FAILURE;
    }
 
-   // return SDL_webcam_init();
-   app_state->texture = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_MJPG, SDL_TEXTUREACCESS_STREAMING, app_state->width, app_state->height);
+   app_state->texture = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_RGBX32, SDL_TEXTUREACCESS_STREAMING, app_state->width, app_state->height);
    if (app_state->texture == NULL)
    {
       SDL_Log("Couldn't create texture: %s", SDL_GetError());
+      return SDL_APP_FAILURE;
+   }
+
+   // Allocate reusable decompression buffer (RGB: 3 bytes per pixel)
+   app_state->decomp_buffer = (unsigned char *)malloc(app_state->width * app_state->height * tjPixelSize[TJPF_XRGB]);
+   if (!app_state->decomp_buffer)
+   {
+      SDL_Log("Failed to allocate decompression buffer");
       return SDL_APP_FAILURE;
    }
 
@@ -138,9 +150,22 @@ bool frame_callback(buffer *buf)
 {
    SDL_Log("Locking Texture");
 
-   void ** pixels = &buf->start;
+   int width, height, jpegSubsamp, jpegColorspace;
 
-   if (!SDL_LockTexture(app_state->texture, NULL, pixels, ((int *)&buf->length)))
+   if(tjDecompressHeader2(app_state->_jpegDecompressor, (unsigned char *)buf->start, buf->length, &width, &height, &jpegSubsamp))
+   {
+      SDL_Log("Decompress Headers Error: %s", tjGetErrorStr2(app_state->_jpegDecompressor));
+      //return false;
+   }
+   int pitch = width * tjPixelSize[TJPF_RGBA];
+
+   if(tjDecompress2(app_state->_jpegDecompressor, (unsigned char *)buf->start, buf->length, app_state->decomp_buffer, width, pitch, height, TJPF_RGBX, TJFLAG_FASTDCT))
+   {
+      SDL_Log("Decompress Error: %s", tjGetErrorStr2(app_state->_jpegDecompressor));
+      //return false;
+   }
+
+   if (!SDL_LockTexture(app_state->texture, NULL, (void **)&app_state->decomp_buffer, &pitch))
    {
       SDL_Log("Locking Failed: %s", SDL_GetError());
       return false;
@@ -160,6 +185,8 @@ int main(void)
    *app_state = (AppState){
        .width = 3840,
        .height = 2160};
+   cout << "Width: " << app_state->width;
+   app_state->_jpegDecompressor = tjInitDecompress();
 
    Camera *camera = new Camera(dev0, &frame_callback);
 
@@ -168,6 +195,17 @@ int main(void)
    std::this_thread::sleep_for(std::chrono::milliseconds(500));
    if (!camera->init_device())
    {
+   // Cleanup
+   if (app_state->_jpegDecompressor)
+   {
+      tjDestroy(app_state->_jpegDecompressor);
+   }
+
+   if (app_state->decomp_buffer)
+   {
+      free(app_state->decomp_buffer);
+   }
+
       cout << "Failed to init device" << endl;
       return -1;
    }
@@ -176,7 +214,6 @@ int main(void)
    unsigned int count = 10000;
    while (count-- > 0)
    {
-      camera->update();
 
       SDL_Event ev;
       while (SDL_PollEvent(&ev))
@@ -190,6 +227,8 @@ int main(void)
       {
          break;
       }
+
+      camera->update();
    }
 
    camera->stop_capturing();
@@ -206,6 +245,10 @@ int main(void)
    if (app_state->camera != NULL)
    {
       SDL_CloseCamera(app_state->camera);
+   }
+   if (app_state->decomp_buffer != NULL)
+   {
+      tjFree(app_state->decomp_buffer);
    }
 
    free(app_state);

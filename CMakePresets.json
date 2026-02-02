@@ -6,17 +6,65 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "DBUS_SESSION_SOCKET_DIR": "/tmp",
+        "VCPKG_HOST_TRIPLET": "x64-linux"
+      },
+      "toolset": {
+        "value": "version=14.29",
+        "strategy": "external"
       }
     },
     {
       "name": "debug",
-      "inherits":["vcpkg"],
+      "inherits": [
+        "vcpkg"
+      ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "vcpkg-arm",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release/arm",
+      "environment": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_HOST_TRIPLET": "x64-linux",
+        "VCPKG_TARGET_TRIPLET": "arm64-linux",
+        "DBUS_SESSION_SOCKET_DIR": "/tmp",
+        "CMAKE_C_COMPILER": "/usr/bin/aarch64-linux-gnu-gcc",
+        "CMAKE_CXX_COMPILER": "/usr/bin/aarch64-linux-gnu-g++",
+        "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic -D_GLIBCXX_USE_CXX11_ABI=0",
+        "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic -D_GLIBCXX_USE_CXX11_ABI=0"
+      }
+    },
+    {
+      "name": "debug-arm",
+      "inherits": [
+        "vcpkg"
+      ],
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug/arm",
+      "environment": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_HOST_TRIPLET": "x64-linux",
+        "VCPKG_TARGET_TRIPLET": "arm64-linux",
+        "DBUS_SESSION_SOCKET_DIR": "/tmp",
+        "CMAKE_C_COMPILER": "/usr/bin/aarch64-linux-gnu-gcc",
+        "CMAKE_CXX_COMPILER": "/usr/bin/aarch64-linux-gnu-g++",
+        "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic -D_GLIBCXX_USE_CXX11_ABI=0",
+        "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic -D_GLIBCXX_USE_CXX11_ABI=0"
       }
     }
   ]

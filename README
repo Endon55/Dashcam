@@ -2,6 +2,10 @@ To build for the first time you must run
     cmake --preset=default
 first.
 
+To cross compile for aarch64 you must install an arm c and c++ compiler
+    sudo apt install gcc-aarch64-linux-gnu
+    sudo apt install g++-aarch64-linux-gnu
+
 To then build the executable run
     cmake --build build
 Telling the compiler to build the project in the build dir
@@ -13,6 +17,10 @@ These are the packages needed to build SDL3
     sudo apt install autoconf autoconf-archive automake libtool
     sudo apt-get install libxtst-dev
     sudo apt install python3.12-venv
+
+
+Might need
+    sudo apt install xsltproc
 
 
 

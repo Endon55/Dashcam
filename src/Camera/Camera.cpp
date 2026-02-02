@@ -125,7 +125,7 @@ Camera::Camera(char *device, bool (*frame_callback_func)(buffer*))
  
      fmt.fmt.pix.width = 3840;
      fmt.fmt.pix.height = 2160;
-     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB32;
      fmt.fmt.pix.field = V4L2_FIELD_NONE;
  
      if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt)) {

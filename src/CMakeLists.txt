@@ -10,4 +10,4 @@ add_executable(Dashcam main.cpp)
 
 
 
-target_link_libraries(Dashcam PRIVATE fmt::fmt SDL3::SDL3 SDL3_image::SDL3_image lib)
+target_link_libraries(Dashcam PRIVATE fmt::fmt SDL3::SDL3 SDL3_image::SDL3_image libjpeg-turbo::turbojpeg-static lib)
