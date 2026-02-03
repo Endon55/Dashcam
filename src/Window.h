@@ -26,8 +26,7 @@ struct AppState
     tjhandle _jpegDecompressor;
 };
 
-
-SDL_AppResult init(AppState *app_state, int argc, char **argv);
+SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv);
 
 SDL_AppResult SDL_webcam_init(AppState *app_state);
 
@@ -35,4 +34,4 @@ SDL_AppResult SDL_iterate(AppState *app_state);
 
 SDL_AppResult SDL_event(AppState *app_state, SDL_Event *event);
 
-void SDL_quit(void *appstate, SDL_AppResult *result);
+SDL_AppResult SDL_quit(AppState *app_state);

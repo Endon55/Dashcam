@@ -18,21 +18,27 @@ AppState *app_state;
 
 bool frame_callback(buffer *buf)
 {
-   SDL_Log("Locking Texture");
-
    int width, height, jpegSubsamp, jpegColorspace;
 
    if (tjDecompressHeader2(app_state->_jpegDecompressor, (unsigned char *)buf->start, buf->length, &width, &height, &jpegSubsamp))
    {
-      SDL_Log("Decompress Headers Error: %s", tjGetErrorStr2(app_state->_jpegDecompressor));
-      // return false;
+      if (tjGetErrorCode(app_state->_jpegDecompressor) == TJERR_FATAL)
+      {
+         SDL_Log("Decompress Headers Error: %s", tjGetErrorStr2(app_state->_jpegDecompressor));
+         exit(errno);
+         return false;
+      }
    }
    int pitch = width * tjPixelSize[TJPF_RGBA];
-
+   // Returns 0 on a success
    if (tjDecompress2(app_state->_jpegDecompressor, (unsigned char *)buf->start, buf->length, app_state->decomp_buffer, width, pitch, height, TJPF_RGBX, TJFLAG_FASTDCT))
    {
-      SDL_Log("Decompress Error: %s", tjGetErrorStr2(app_state->_jpegDecompressor));
-      // return false;
+      if (tjGetErrorCode(app_state->_jpegDecompressor) == TJERR_FATAL)
+      {
+         SDL_Log("Decompress Error: %s", tjGetErrorStr2(app_state->_jpegDecompressor));
+         exit(errno);
+         return false;
+      }
    }
 
    if (!SDL_LockTexture(app_state->texture, NULL, (void **)&app_state->decomp_buffer, &pitch))
@@ -41,7 +47,6 @@ bool frame_callback(buffer *buf)
       return false;
    }
    SDL_UnlockTexture(app_state->texture);
-   SDL_Log("Unlocking Texture");
    return true;
 }
 
@@ -55,14 +60,13 @@ int main(void)
    *app_state = (AppState){
        .width = 3840,
        .height = 2160};
-   cout << "Width: " << app_state->width;
+
    app_state->_jpegDecompressor = tjInitDecompress();
 
    Camera *camera = new Camera(dev0, &frame_callback);
 
-   init(app_state, 0, NULL);
+   SDL_init(app_state, 0, NULL);
 
-   std::this_thread::sleep_for(std::chrono::milliseconds(500));
    if (!camera->init_device())
    {
       // Cleanup
@@ -80,7 +84,9 @@ int main(void)
       return -1;
    }
 
+   // std::this_thread::sleep_for(std::chrono::milliseconds(2000));
    camera->start_capturing();
+
    unsigned int count = 10000;
    while (count-- > 0)
    {
@@ -102,26 +108,7 @@ int main(void)
    }
 
    camera->stop_capturing();
-
-   if (app_state->texture != NULL)
-   {
-      SDL_DestroyTexture(app_state->texture);
-   }
-
-   if (app_state->devices != NULL)
-   {
-      SDL_free(app_state->devices);
-   }
-   if (app_state->camera != NULL)
-   {
-      SDL_CloseCamera(app_state->camera);
-   }
-   if (app_state->decomp_buffer != NULL)
-   {
-      tjFree(app_state->decomp_buffer);
-   }
-
-   free(app_state);
+   SDL_quit(app_state);
 
    return 0;
 }
