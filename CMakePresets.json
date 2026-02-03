@@ -5,14 +5,13 @@
       "name": "vcpkg",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
+      "environment": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
+      },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "DBUS_SESSION_SOCKET_DIR": "/tmp",
         "VCPKG_HOST_TRIPLET": "x64-linux"
-      },
-      "toolset": {
-        "value": "version=14.29",
-        "strategy": "external"
       }
     },
     {
@@ -22,9 +21,14 @@
       ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/debug",
+      "environment": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
+      },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "DBUS_SESSION_SOCKET_DIR": "/tmp",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_HOST_TRIPLET": "x64-linux"
       }
     },
     {
@@ -37,14 +41,14 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
-        "CMAKE_SYSROOT": "${env.HOME}/pi-sysroot",
+        "CMAKE_SYSROOT": "/home/anthony/pi-sysroot",
         "VCPKG_HOST_TRIPLET": "x64-linux",
         "VCPKG_TARGET_TRIPLET": "arm64-linux",
         "DBUS_SESSION_SOCKET_DIR": "/tmp",
         "CMAKE_C_COMPILER": "/usr/bin/aarch64-linux-gnu-gcc",
         "CMAKE_CXX_COMPILER": "/usr/bin/aarch64-linux-gnu-g++",
-        "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic -D_GLIBCXX_USE_CXX11_ABI=0",
-        "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic -D_GLIBCXX_USE_CXX11_ABI=0"
+        "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic",
+        "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic"
       }
     },
     {
@@ -57,15 +61,15 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
-        "CMAKE_SYSROOT": "${env.HOME}/pi-sysroot",
+        "CMAKE_SYSROOT": "/home/anthony/pi-sysroot",
         "CMAKE_BUILD_TYPE": "Debug",
         "VCPKG_HOST_TRIPLET": "x64-linux",
         "VCPKG_TARGET_TRIPLET": "arm64-linux",
         "DBUS_SESSION_SOCKET_DIR": "/tmp",
         "CMAKE_C_COMPILER": "/usr/bin/aarch64-linux-gnu-gcc",
         "CMAKE_CXX_COMPILER": "/usr/bin/aarch64-linux-gnu-g++",
-        "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic -D_GLIBCXX_USE_CXX11_ABI=0",
-        "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic -D_GLIBCXX_USE_CXX11_ABI=0"
+        "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic",
+        "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic"
       }
     }
   ]

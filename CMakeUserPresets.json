@@ -2,11 +2,45 @@
   "version": 2,
   "configurePresets": [
     {
-      "name": "default",
+      "name": "host-release",
+      "displayName": "Host Release (x64-linux)",
+      "description": "Build for host machine (x64-linux) in Release mode",
       "inherits": "vcpkg",
       "environment": {
         "VCPKG_ROOT": "$env{HOME}/vcpkg"
       }
+    },
+    {
+      "name": "host-debug",
+      "displayName": "Host Debug (x64-linux)",
+      "description": "Build for host machine (x64-linux) in Debug mode",
+      "inherits": "debug",
+      "environment": {
+        "VCPKG_ROOT": "$env{HOME}/vcpkg"
+      }
+    },
+    {
+      "name": "pi-release",
+      "displayName": "Raspberry Pi Release (ARM64)",
+      "description": "Cross-compile for Raspberry Pi (ARM64) in Release mode",
+      "inherits": "vcpkg-arm",
+      "environment": {
+        "VCPKG_ROOT": "$env{HOME}/vcpkg"
+      }
+    },
+    {
+      "name": "pi-debug",
+      "displayName": "Raspberry Pi Debug (ARM64)",
+      "description": "Cross-compile for Raspberry Pi (ARM64) in Debug mode",
+      "inherits": "debug-arm",
+      "environment": {
+        "VCPKG_ROOT": "$env{HOME}/vcpkg"
+      }
+    },
+    {
+      "name": "default",
+      "inherits": "host-debug",
+      "hidden": true
     }
   ]
 }

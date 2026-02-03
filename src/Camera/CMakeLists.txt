@@ -4,6 +4,6 @@ set(sources
 Camera.h
 Camera.cpp)
 
-add_library(lib ${sources})
+add_library(camera ${sources})
 
-target_link_libraries(lib)
+target_link_libraries(camera)

@@ -3,7 +3,11 @@
 cmake_minimum_required(VERSION 3.10)
 
 set(VCPKG_HOST_TRIPLET "x64-linux")
-set(VCPKG_TARGET_TRIPLET "arm64-linux")
+# VCPKG_TARGET_TRIPLET is set via CMakePresets.json
+# Default to x64-linux if not specified in preset
+if(NOT VCPKG_TARGET_TRIPLET)
+  set(VCPKG_TARGET_TRIPLET "x64-linux")
+endif()
 
 project(Dashcam)
 
