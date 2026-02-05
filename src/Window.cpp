@@ -6,24 +6,31 @@ using namespace std;
 
 SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
 {
-
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    else
-    {
-        cout << "Success" << endl;
-    }
 
-    if (!SDL_CreateWindowAndRenderer("Dashcam", app_state->width, app_state->height, 0, &(app_state->window), &(app_state->renderer)))
+    app_state->window = SDL_CreateWindow("Dashcam", app_state->width, app_state->height, SDL_WINDOW_FULLSCREEN);
+    if (app_state->window == NULL)
     {
-        SDL_Log("Couldn't create window or renderer: %s", SDL_GetError());
+        SDL_Log("Couldn't create window: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    app_state->texture = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_RGBX32, SDL_TEXTUREACCESS_STREAMING, app_state->width, app_state->height);
+    app_state->renderer = SDL_CreateRenderer(app_state->window, NULL);
+    if (app_state->renderer == NULL)
+    {
+        SDL_Log("Couldn't create renderer: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    //SDL_SetRenderLogicalPresentation(app_state->renderer, app_state->width, app_state->height, SDL_LOGICAL_PRESENTATION_DISABLED);
+
+    // SDL_PIXELFORMAT_RGBX32
+    app_state->texture = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, app_state->width, app_state->height);
+
     if (app_state->texture == NULL)
     {
         SDL_Log("Couldn't create texture: %s", SDL_GetError());
@@ -31,7 +38,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
     }
 
     // Allocate reusable decompression buffer (RGB: 3 bytes per pixel)
-    app_state->decomp_buffer = (unsigned char *)malloc(app_state->width * app_state->height * tjPixelSize[TJPF_XRGB]);
+    app_state->decomp_buffer = (unsigned char *)malloc(app_state->width * app_state->height * tjPixelSize[TJPF_RGBA]);
     if (!app_state->decomp_buffer)
     {
         SDL_Log("Failed to allocate decompression buffer");
@@ -60,6 +67,22 @@ SDL_AppResult SDL_event(AppState *app_state, SDL_Event *event)
     if (event->type == SDL_EVENT_QUIT || event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
     {
         return SDL_APP_SUCCESS;
+    }
+    if(event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
+    {
+        SDL_GetWindowSizeInPixels(app_state->window, &app_state->width, &app_state->height);
+        cout << "w:" << app_state->width << " h:" << app_state->height << endl;
+    }
+    if(event->type == SDL_EVENT_KEY_DOWN && !event->key.repeat)
+    {
+        switch (event->key.key)
+        {
+            case(SDLK_ESCAPE):
+                return SDL_APP_SUCCESS;
+
+            default:
+                break;
+        }
     }
     return SDL_APP_CONTINUE;
 }

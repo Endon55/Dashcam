@@ -13,13 +13,20 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <iostream>
+#include <cstring>
 
-Camera::Camera(char *device, bool (*frame_callback_func)(buffer *))
+Camera::Camera(int deviceNumber, bool (*frame_callback_func)(buffer *))
 {
     this->frame_callback_func = frame_callback_func;
-    this->device = device;
+    device = new char[dev_len];
+    strcpy(device, dev);
+    device[dev_len - 1] = '0' + deviceNumber;
 }
-
+void Camera::getDimensions(int* width, int* height)
+{
+    *width = this->width;
+    *height = this->height;
+}
 void Camera::update()
 {
 
@@ -145,7 +152,8 @@ bool Camera::init_device()
         perror("VIDIOC_S_FMT");
         exit(errno);
     }
-
+    this->width = fmt.fmt.pix.width;
+    this->height = fmt.fmt.pix.height;
     char format_code[5];
     strncpy(format_code, (char *)&fmt.fmt.pix.pixelformat, 4);
     format_code[4] = '\0';
@@ -215,8 +223,7 @@ void Camera::stop_capturing(void)
 
 bool Camera::process_image(buffer *buf)
 {
-    fputc('.', stdout);
-    fflush(stdout);
+
     return frame_callback_func(buf);
 }
 

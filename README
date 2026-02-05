@@ -25,3 +25,5 @@ Might need
 
 
 ffplay -f video4linux2 -i -pixel_format mjpeg -video_size 3840x2160 /dev/video0
+ffplay -f video4linux2 -i -pixel_format mjpeg -video_size 1280x960 /dev/video0
+ffplay -f video4linux2 -i /dev/video0
