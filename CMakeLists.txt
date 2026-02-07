@@ -16,7 +16,19 @@ find_package(fmt CONFIG REQUIRED)
 find_package(SDL3 REQUIRED CONFIG)
 find_package(SDL3_image REQUIRED CONFIG)
 find_package(libjpeg-turbo CONFIG REQUIRED)
+find_package(FFMPEG REQUIRED)
 
+# FFmpeg uses pkg-config
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+    libavcodec
+    libavdevice
+    libavformat
+    libavfilter
+    libavutil
+    libswresample
+    libswscale
+)
 
 add_subdirectory(src)
 

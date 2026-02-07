@@ -11,6 +11,8 @@
 #include <thread>
 #include <turbojpeg.h>
 #include "Window.h"
+#include <libavutil/opt.h>
+#include <libavcodec/avcodec.h>
 
 using namespace std;
 
@@ -120,6 +122,17 @@ bool frame_callback(buffer *buf)
 
 int main(void)
 {
+
+
+
+
+
+
+
+
+
+
+
 
    app_state = (AppState *)malloc(sizeof(AppState));
    rect = (SDL_Rect *)malloc(sizeof(SDL_Rect));

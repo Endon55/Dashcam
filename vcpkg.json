@@ -1,8 +1,9 @@
 {
   "dependencies": [
     "fmt",
+    "libjpeg-turbo",
     "sdl3",
     "sdl3-image",
-    "libjpeg-turbo"
+    "ffmpeg"
   ]
 }

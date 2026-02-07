@@ -10,6 +10,9 @@ To then build the executable run
     cmake --build build
 Telling the compiler to build the project in the build dir
 
+//Required for ffmpeg
+    sudo apt install nasm
+
 Ninja is required for building the base project
     sudo apt install ninja-build
 
