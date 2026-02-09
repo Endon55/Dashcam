@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.10)
 project(Dashcam)
 
 add_subdirectory(Camera)
-add_executable(Dashcam ff_test.cpp)
+add_executable(Dashcam main.cpp)
 
 set(sources 
 Window.h

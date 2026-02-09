@@ -29,7 +29,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
     //SDL_SetRenderLogicalPresentation(app_state->renderer, app_state->width, app_state->height, SDL_LOGICAL_PRESENTATION_DISABLED);
 
     // SDL_PIXELFORMAT_RGBX32
-    app_state->texture = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, app_state->width, app_state->height);
+    app_state->texture = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, app_state->width, app_state->height);
 
     if (app_state->texture == NULL)
     {
