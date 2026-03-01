@@ -13,17 +13,13 @@ struct AppState
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Texture *texture;
-    SDL_CameraID *devices;
-    SDL_Camera *camera;
     SDL_Event *event;
+    SDL_AudioSpec *audio_spec;
+    SDL_AudioStream *audio_stream;
     int width;
     int height;
     int camera_count;
     int pitch = -1;
-    long unsigned int _jpegSize;
-    int jpegSubsamp;
-    unsigned char *decomp_buffer;
-    tjhandle _jpegDecompressor;
 };
 
 SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv);

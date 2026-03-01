@@ -17,6 +17,7 @@ find_package(SDL3 REQUIRED CONFIG)
 find_package(SDL3_image REQUIRED CONFIG)
 find_package(libjpeg-turbo CONFIG REQUIRED)
 find_package(FFMPEG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 # FFmpeg uses pkg-config
 find_package(PkgConfig REQUIRED)
@@ -28,6 +29,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
     libavutil
     libswresample
     libswscale
+    alsa
 )
 
 add_subdirectory(src)

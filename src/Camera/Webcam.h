@@ -1,0 +1,137 @@
+#pragma once
+
+#include <stdlib.h>
+#include <string>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <SDL3/SDL.h>
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavdevice/avdevice.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/opt.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/rational.h>
+#include <libavutil/time.h>
+#include <libswscale/swscale.h>
+#include <libswresample/swresample.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersrc.h>
+#include <libavfilter/buffersink.h>
+}
+#include <spdlog/spdlog.h>
+
+#ifdef av_err2str
+#undef av_err2str
+#include <string>
+av_always_inline std::string av_err2string(int errnum)
+{
+    char str[AV_ERROR_MAX_STRING_SIZE];
+    return av_make_error_string(str, AV_ERROR_MAX_STRING_SIZE, errnum);
+}
+#define av_err2str(err) av_err2string(err).c_str()
+#endif // av_err2str
+
+using namespace std;
+
+const char dev[] = "/dev/videoX";
+const int dev_len = 11;
+
+struct Video
+{
+    int stream_index;
+    AVFormatContext *fmtContext;
+    const AVCodec *codec;
+    AVCodecContext *codecContext;
+    AVCodecParameters *codecParams;
+    AVFrame *frame;
+    AVFrame *yuv_frame;
+    AVPacket *packet;
+    SwsContext *sws_ctx;
+    AVFilterGraph *filterGraph;
+    AVFilterContext *sourceFilter;
+    AVFilterContext *sinkFilter;
+    AVFilterContext *flipFilter;
+};
+struct Audio
+{
+    int stream_index;
+    AVFormatContext *fmtContext;
+    const AVCodec *codec;
+    AVCodecParameters *codecParams;
+    AVCodecContext *codecContext;
+    AVFrame *frame;
+    AVPacket *packet;
+    AVStream *stream;
+    SwrContext *swr_ctx;
+    AVChannelLayout out_ch_layout;
+    uint8_t *out_buf;
+    int out_buf_size;
+};
+
+struct Recorder
+{
+    bool enabled;
+    AVFormatContext *fmtContext;
+
+    const AVCodec *videoCodec;
+    AVCodecContext *videoCodecContext;
+    AVStream *videoStream;
+    int64_t last_video_pts;
+
+    const AVCodec *audioCodec;
+    AVCodecContext *audioCodecContext;
+    AVStream *audioStream;
+    SwrContext *audio_swr_ctx;
+    AVChannelLayout audio_in_layout;
+    int64_t next_audio_pts;
+
+    AVRational wallclock_time_base;
+    int64_t start_time_us;
+    std::mutex muxMutex;
+};
+
+class Webcam
+{
+public:
+    char *device;
+    struct Video video;
+    struct Audio audio;
+    struct Recorder recorder;
+    // struct Audio audio;
+
+public:
+    Webcam(int deviceNumber);
+    int init();
+    int close();
+    int processVideoFrame(SDL_Texture *texture, SDL_Rect *rect);
+    int processAudioFrame(SDL_AudioStream *audioStream);
+    int startAudioCapture(SDL_AudioStream *audioStream);
+    int stopAudioCapture();
+    int startRecording(const std::string &outputPath);
+    int stopRecording();
+    bool isRecording() const;
+
+private:
+    int initVideo();
+    int initAudio();
+    int closeVideo();
+    int closeAudio();
+    void audioCaptureLoop();
+    int initRecorderVideoStream();
+    int initRecorderAudioStream();
+    int recordVideoFrame(AVFrame *frame);
+    int recordAudioFrame(AVFrame *decodedAudioFrame);
+    int writeEncodedPacket(AVCodecContext *encContext, AVStream *stream);
+    int flushRecorderEncoder(AVCodecContext *encContext, AVStream *stream);
+    int closeRecorder();
+
+private:
+    std::thread audioThread;
+    std::atomic<bool> audioThreadRunning{false};
+    std::atomic<bool> audioThreadStopRequested{false};
+    SDL_AudioStream *audioStreamTarget = nullptr;
+};

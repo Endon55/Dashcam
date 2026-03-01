@@ -1,9 +1,15 @@
 {
   "dependencies": [
+    {
+      "name": "ffmpeg",
+      "features": [
+        "alsa"
+      ]
+    },
     "fmt",
     "libjpeg-turbo",
     "sdl3",
     "sdl3-image",
-    "ffmpeg"
+    "spdlog"
   ]
 }

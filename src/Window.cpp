@@ -6,7 +6,7 @@ using namespace std;
 
 SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
 {
-    if (!SDL_Init(SDL_INIT_VIDEO))
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO))
     {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -26,6 +26,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
         return SDL_APP_FAILURE;
     }
 
+
     //SDL_SetRenderLogicalPresentation(app_state->renderer, app_state->width, app_state->height, SDL_LOGICAL_PRESENTATION_DISABLED);
 
     // SDL_PIXELFORMAT_RGBX32
@@ -37,13 +38,14 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
         return SDL_APP_FAILURE;
     }
 
-    // Allocate reusable decompression buffer (RGB: 3 bytes per pixel)
-    app_state->decomp_buffer = (unsigned char *)malloc(app_state->width * app_state->height * tjPixelSize[TJPF_RGBA]);
-    if (!app_state->decomp_buffer)
+    app_state->audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, app_state->audio_spec, NULL, NULL);
+
+    if(!app_state->audio_stream)
     {
-        SDL_Log("Failed to allocate decompression buffer");
+        SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+    SDL_ResumeAudioStreamDevice(app_state->audio_stream);
 
     return SDL_APP_CONTINUE;
 }
@@ -94,19 +96,15 @@ SDL_AppResult SDL_quit(AppState *app_state)
         SDL_DestroyTexture(app_state->texture);
     }
 
-    if (app_state->devices != NULL)
+    if(app_state->audio_stream != NULL)
     {
-        SDL_free(app_state->devices);
+        SDL_DestroyAudioStream(app_state->audio_stream);
     }
-    if (app_state->camera != NULL)
+    
+    if (app_state->audio_spec != NULL)
     {
-        SDL_CloseCamera(app_state->camera);
+        free(app_state->audio_spec);
     }
-    if (app_state->decomp_buffer != NULL)
-    {
-        tjFree(app_state->decomp_buffer);
-    }
-
     free(app_state);
 
     return SDL_APP_SUCCESS;
