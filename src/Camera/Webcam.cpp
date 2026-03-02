@@ -3,11 +3,14 @@
 #include <chrono>
 
 
+
 Webcam::Webcam(int deviceNumber)
 {
     device = new char[dev_len];
     strcpy(device, dev);
     device[dev_len - 1] = '0' + deviceNumber;
+
+
 }
 
 int Webcam::init()
@@ -468,6 +471,8 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
         return -1;
     }
 
+
+
     SDL_UpdateYUVTexture(texture, rect,
                          filtered_frame->data[0], filtered_frame->linesize[0],
                          filtered_frame->data[1], filtered_frame->linesize[1],
@@ -540,6 +545,8 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
         int out_size = out_samples * dst_nb_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
         SDL_PutAudioStreamData(audioStream, audio.out_buf, out_size);
     }
+
+
 
     av_packet_unref(audio.packet);
     return 0;
@@ -675,3 +682,4 @@ int Webcam::closeAudio()
 
     return 0;
 }
+

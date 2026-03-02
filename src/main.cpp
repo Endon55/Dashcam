@@ -19,6 +19,7 @@ SDL_Rect *rect;
 int main(int argc, char **argv)
 {
    int ret;
+   int exitCode = 0;
    unsigned int count = 1000;
    app_state = (AppState *)malloc(sizeof(AppState));
    rect = (SDL_Rect *)malloc(sizeof(SDL_Rect));
@@ -33,7 +34,12 @@ int main(int argc, char **argv)
 
    spdlog::set_level(spdlog::level::debug);
    Webcam *webcam = new Webcam(0);
-   webcam->init();
+   ret = webcam->init();
+   if (ret < 0)
+   {
+      delete webcam;
+      return ret;
+   }
 
 
    app_state->width = webcam->video.codecContext->width;
@@ -43,19 +49,24 @@ int main(int argc, char **argv)
 
    if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
    {
+      webcam->close();
+      delete webcam;
       return -1;
    }
    app_state->audio_spec = (SDL_AudioSpec *)malloc(sizeof(SDL_AudioSpec));
    ret = sdl_load_audio_spec(app_state->audio_spec, webcam->audio.codec, webcam->audio.codecParams);
    if (ret < 0)
    {
-      return ret;
+      exitCode = ret;
+      goto cleanup;
    }
+
 
    ret = webcam->startAudioCapture(app_state->audio_stream);
    if (ret < 0)
    {
-      return ret;
+      exitCode = ret;
+      goto cleanup;
    }
 
    spdlog::debug("Starting app core loop");
@@ -68,14 +79,16 @@ int main(int argc, char **argv)
          if (SDL_event(app_state, &ev) != SDL_APP_CONTINUE)
          {
             spdlog::info("App closed by ESC key press");
-            return 0;
+            exitCode = 0;
+            goto cleanup;
          }
       }
 
       ret = webcam->processVideoFrame(app_state->texture, rect);
       if (ret < 0)
       {
-         return ret;
+         exitCode = ret;
+         goto cleanup;
       }
       if (ret > 0)
       {
@@ -88,7 +101,17 @@ int main(int argc, char **argv)
       }
    }
 
-   return ret;
+   if (ret < 0)
+   {
+      exitCode = ret;
+   }
+
+cleanup:
+   webcam->close();
+   SDL_quit(app_state);
+   delete webcam;
+   free(rect);
+   return exitCode;
 }
 
 int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodec *codec, AVCodecParameters *params)

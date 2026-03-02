@@ -72,27 +72,6 @@ struct Audio
     int out_buf_size;
 };
 
-struct Recorder
-{
-    bool enabled;
-    AVFormatContext *fmtContext;
-
-    const AVCodec *videoCodec;
-    AVCodecContext *videoCodecContext;
-    AVStream *videoStream;
-    int64_t last_video_pts;
-
-    const AVCodec *audioCodec;
-    AVCodecContext *audioCodecContext;
-    AVStream *audioStream;
-    SwrContext *audio_swr_ctx;
-    AVChannelLayout audio_in_layout;
-    int64_t next_audio_pts;
-
-    AVRational wallclock_time_base;
-    int64_t start_time_us;
-    std::mutex muxMutex;
-};
 
 class Webcam
 {
@@ -100,8 +79,6 @@ public:
     char *device;
     struct Video video;
     struct Audio audio;
-    struct Recorder recorder;
-    // struct Audio audio;
 
 public:
     Webcam(int deviceNumber);
@@ -111,9 +88,7 @@ public:
     int processAudioFrame(SDL_AudioStream *audioStream);
     int startAudioCapture(SDL_AudioStream *audioStream);
     int stopAudioCapture();
-    int startRecording(const std::string &outputPath);
-    int stopRecording();
-    bool isRecording() const;
+
 
 private:
     int initVideo();
@@ -121,13 +96,9 @@ private:
     int closeVideo();
     int closeAudio();
     void audioCaptureLoop();
-    int initRecorderVideoStream();
-    int initRecorderAudioStream();
-    int recordVideoFrame(AVFrame *frame);
-    int recordAudioFrame(AVFrame *decodedAudioFrame);
     int writeEncodedPacket(AVCodecContext *encContext, AVStream *stream);
     int flushRecorderEncoder(AVCodecContext *encContext, AVStream *stream);
-    int closeRecorder();
+
 
 private:
     std::thread audioThread;
