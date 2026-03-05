@@ -15,15 +15,32 @@ Webcam::Webcam(int deviceNumber)
 
 int Webcam::init()
 {
-
     avdevice_register_all();
+    int ret;
     spdlog::debug("Initializing Webcam: {}", device);
-    int ret = initVideo();
+
+
+
+    ret = initVideo();
     if (ret < 0)
     {
+        spdlog::critical("Failed to initialize video");
         return ret;
     }
-    return initAudio();
+    ret = initAudio();
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to initialize audio");
+        return ret;
+    }
+    muxor = new Muxor("/home/anthony/Desktop/videos/Test.mp4");
+    ret = muxor->init(video.codecParams->width, video.codecParams->height);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to initialize muxor");
+        return ret;
+    }
+    return ret;
 }
 
 int Webcam::initVideo()
@@ -471,7 +488,7 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
         return -1;
     }
 
-
+    muxor->write_video_frame(filtered_frame);
 
     SDL_UpdateYUVTexture(texture, rect,
                          filtered_frame->data[0], filtered_frame->linesize[0],
@@ -607,13 +624,27 @@ int Webcam::stopAudioCapture()
 int Webcam::close()
 {
     spdlog::debug("Closing Webcam: {}", device);
+    int ret;
     stopAudioCapture();
-    int ret = closeVideo();
+    ret = closeVideo();
     if (ret < 0)
     {
+        spdlog::critical("Failed to close webcam video");
         return ret;
     }
-    return closeAudio();
+    ret = closeAudio();
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to close webcam audio");
+        return ret;
+    }
+    ret = muxor->close();
+    if(ret < 0)
+    {
+        spdlog::critical("Failed to close muxor");
+        return ret;
+    }
+    return 0;
 }
 
 int Webcam::closeVideo()

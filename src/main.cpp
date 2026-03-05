@@ -6,6 +6,7 @@
 #include <iostream>
 #include "Window.h"
 #include "Camera/Webcam.h"
+#include "Camera/Muxor.h"
 
 #include <spdlog/spdlog.h>
 
@@ -16,6 +17,7 @@ int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodec *codec, AVCodecParame
 AVDeviceInfoList *infoList;
 AppState *app_state;
 SDL_Rect *rect;
+
 int main(int argc, char **argv)
 {
    int ret;
@@ -30,8 +32,6 @@ int main(int argc, char **argv)
        .width = 0,
        .height = 0};
 
-
-
    spdlog::set_level(spdlog::level::debug);
    Webcam *webcam = new Webcam(0);
    ret = webcam->init();
@@ -40,7 +40,6 @@ int main(int argc, char **argv)
       delete webcam;
       return ret;
    }
-
 
    app_state->width = webcam->video.codecContext->width;
    app_state->height = webcam->video.codecContext->height;
@@ -60,7 +59,6 @@ int main(int argc, char **argv)
       exitCode = ret;
       goto cleanup;
    }
-
 
    ret = webcam->startAudioCapture(app_state->audio_stream);
    if (ret < 0)
