@@ -1,16 +1,171 @@
 #include "Webcam.h"
 
 #include <chrono>
+#include <cmath>
+#include <cstring>
+#include <fcntl.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
+namespace
+{
+    struct CaptureMode
+    {
+        int width = 0;
+        int height = 0;
+        uint32_t pixelFormat = 0;
+        const char *ffmpegInputFormat = nullptr;
+        double fps = 0.0;
+    };
 
+    const char *v4l2PixelFormatToFfmpeg(uint32_t pixelFormat)
+    {
+        switch (pixelFormat)
+        {
+        case V4L2_PIX_FMT_MJPEG:
+            return "mjpeg";
+        case V4L2_PIX_FMT_YUYV:
+            return "yuyv422";
+        case V4L2_PIX_FMT_NV12:
+            return "nv12";
+        case V4L2_PIX_FMT_RGB24:
+            return "rgb24";
+        default:
+            return nullptr;
+        }
+    }
+
+    double probeBestFpsForSize(int fd, uint32_t pixelFormat, int width, int height)
+    {
+        double bestFps = 0.0;
+        v4l2_frmivalenum frameInterval = {};
+        frameInterval.pixel_format = pixelFormat;
+        frameInterval.width = static_cast<uint32_t>(width);
+        frameInterval.height = static_cast<uint32_t>(height);
+
+        while (ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frameInterval) == 0)
+        {
+            if (frameInterval.type == V4L2_FRMIVAL_TYPE_DISCRETE)
+            {
+                if (frameInterval.discrete.numerator > 0)
+                {
+                    double fps = static_cast<double>(frameInterval.discrete.denominator) /
+                                 static_cast<double>(frameInterval.discrete.numerator);
+                    if (fps > bestFps)
+                    {
+                        bestFps = fps;
+                    }
+                }
+            }
+            else if (frameInterval.type == V4L2_FRMIVAL_TYPE_STEPWISE || frameInterval.type == V4L2_FRMIVAL_TYPE_CONTINUOUS)
+            {
+                if (frameInterval.stepwise.min.numerator > 0)
+                {
+                    double maxFps = static_cast<double>(frameInterval.stepwise.min.denominator) /
+                                    static_cast<double>(frameInterval.stepwise.min.numerator);
+                    if (maxFps > bestFps)
+                    {
+                        bestFps = maxFps;
+                    }
+                }
+            }
+
+            frameInterval.index++;
+        }
+
+        return bestFps;
+    }
+
+    int64_t captureModeScore(int width, int height, uint32_t pixelFormat, double fps)
+    {
+        int64_t score = static_cast<int64_t>(width) * static_cast<int64_t>(height);
+        score += static_cast<int64_t>(fps * 10000000.0);
+
+        if (pixelFormat == V4L2_PIX_FMT_MJPEG)
+        {
+            score += static_cast<int64_t>(1) << 28;
+        }
+
+        if (fps < 15.0)
+        {
+            score -= static_cast<int64_t>(1) << 30;
+        }
+
+        return score;
+    }
+
+    CaptureMode probeBestCaptureMode(const char *devicePath)
+    {
+        CaptureMode bestMode;
+        int64_t bestScore = -1;
+
+        int fd = open(devicePath, O_RDWR | O_NONBLOCK);
+        if (fd < 0)
+        {
+            spdlog::warn("Unable to probe V4L2 formats for {}", devicePath);
+            return bestMode;
+        }
+
+        v4l2_fmtdesc fmtDesc = {};
+        fmtDesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+        while (ioctl(fd, VIDIOC_ENUM_FMT, &fmtDesc) == 0)
+        {
+            const char *ffmpegInputFormat = v4l2PixelFormatToFfmpeg(fmtDesc.pixelformat);
+            if (ffmpegInputFormat != nullptr)
+            {
+                v4l2_frmsizeenum frameSize = {};
+                frameSize.pixel_format = fmtDesc.pixelformat;
+
+                while (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frameSize) == 0)
+                {
+                    int width = 0;
+                    int height = 0;
+
+                    if (frameSize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
+                    {
+                        width = static_cast<int>(frameSize.discrete.width);
+                        height = static_cast<int>(frameSize.discrete.height);
+                    }
+                    else if (frameSize.type == V4L2_FRMSIZE_TYPE_STEPWISE || frameSize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS)
+                    {
+                        width = static_cast<int>(frameSize.stepwise.max_width);
+                        height = static_cast<int>(frameSize.stepwise.max_height);
+                    }
+
+                    if (width > 0 && height > 0)
+                    {
+                        double fps = probeBestFpsForSize(fd, fmtDesc.pixelformat, width, height);
+                        int64_t score = captureModeScore(width, height, fmtDesc.pixelformat, fps);
+                        if (score > bestScore)
+                        {
+                            bestScore = score;
+                            bestMode.width = width;
+                            bestMode.height = height;
+                            bestMode.pixelFormat = fmtDesc.pixelformat;
+                            bestMode.ffmpegInputFormat = ffmpegInputFormat;
+                            bestMode.fps = fps;
+                        }
+                    }
+
+                    frameSize.index++;
+                }
+            }
+
+            fmtDesc.index++;
+        }
+
+        close(fd);
+        return bestMode;
+    }
+}
 
 Webcam::Webcam(int deviceNumber)
 {
     device = new char[dev_len];
     strcpy(device, dev);
     device[dev_len - 1] = '0' + deviceNumber;
-
-
 }
 
 int Webcam::init()
@@ -18,8 +173,6 @@ int Webcam::init()
     avdevice_register_all();
     int ret;
     spdlog::debug("Initializing Webcam: {}", device);
-
-
 
     ret = initVideo();
     if (ret < 0)
@@ -33,8 +186,19 @@ int Webcam::init()
         spdlog::critical("Failed to initialize audio");
         return ret;
     }
+
+    AVRational captureFrameRate = video.fmtContext->streams[video.stream_index]->avg_frame_rate;
+    if (captureFrameRate.num <= 0 || captureFrameRate.den <= 0)
+    {
+        captureFrameRate = video.fmtContext->streams[video.stream_index]->r_frame_rate;
+    }
+    if (captureFrameRate.num <= 0 || captureFrameRate.den <= 0)
+    {
+        captureFrameRate = AVRational{30, 1};
+    }
+
     muxor = new Muxor("/home/anthony/Desktop/videos/Test.mp4");
-    ret = muxor->init(video.codecParams->width, video.codecParams->height);
+    ret = muxor->init(video.codecParams->width, video.codecParams->height, captureFrameRate);
     if (ret < 0)
     {
         spdlog::critical("Failed to initialize muxor");
@@ -61,27 +225,62 @@ int Webcam::initVideo()
         spdlog::critical("Couldn't load input format v4l2");
         return -1;
     }
-    ret = avformat_open_input(&video.fmtContext, device, inputFormat, NULL);
+
+    AVDictionary *videoInputOptions = NULL;
+    CaptureMode captureMode = probeBestCaptureMode(device);
+    if (captureMode.width > 0 && captureMode.height > 0)
+    {
+        char videoSize[32];
+        snprintf(videoSize, sizeof(videoSize), "%dx%d", captureMode.width, captureMode.height);
+        av_dict_set(&videoInputOptions, "video_size", videoSize, 0);
+        if (captureMode.fps > 0.0)
+        {
+            char frameRate[16];
+            int stableFps = static_cast<int>(std::round(captureMode.fps));
+            snprintf(frameRate, sizeof(frameRate), "%d", stableFps);
+            av_dict_set(&videoInputOptions, "framerate", frameRate, 0);
+        }
+        if (captureMode.ffmpegInputFormat != nullptr)
+        {
+            av_dict_set(&videoInputOptions, "input_format", captureMode.ffmpegInputFormat, 0);
+        }
+        spdlog::info("Requesting webcam mode {} @ {:.2f} fps ({})",
+                     videoSize,
+                     captureMode.fps,
+                     captureMode.ffmpegInputFormat != nullptr ? captureMode.ffmpegInputFormat : "default");
+    }
+
+    ret = avformat_open_input(&video.fmtContext, device, inputFormat, &videoInputOptions);
+    av_dict_free(&videoInputOptions);
     if (ret < 0)
     {
         spdlog::critical("Error opening av format: {}", av_err2str(ret));
         return ret;
     }
-    AVDeviceInfoList *devicesInfo;
-    spdlog::debug("Device count: {}", avdevice_list_devices(video.fmtContext, &devicesInfo));
-    for (int i = 0; i < devicesInfo->nb_devices; i++)
+
+    AVDeviceInfoList *devicesInfo = NULL;
+    int deviceCount = avdevice_list_devices(video.fmtContext, &devicesInfo);
+    spdlog::debug("Device count: {}", deviceCount);
+    if (deviceCount > 0 && devicesInfo != NULL)
     {
-        AVDeviceInfo *info = devicesInfo->devices[i];
-        spdlog::debug("Device Name: {}, Device Description: {}, Media Type: {}", info->device_name, info->device_description, (long)info->media_types);
+        for (int i = 0; i < devicesInfo->nb_devices; i++)
+        {
+            AVDeviceInfo *info = devicesInfo->devices[i];
+            spdlog::debug("Device Name: {}, Device Description: {}, Media Type: {}", info->device_name, info->device_description, (long)info->media_types);
+        }
     }
-    
+    else if (deviceCount < 0)
+    {
+        spdlog::warn("Unable to enumerate video devices: {}", av_err2str(deviceCount));
+    }
+
     if (devicesInfo != NULL)
     {
         avdevice_free_list_devices(&devicesInfo);
     }
 
     video.frame = av_frame_alloc();
-    if(!video.frame)
+    if (!video.frame)
     {
         spdlog::critical("Failed to allocate memory for frame");
         return -1;
@@ -90,6 +289,12 @@ int Webcam::initVideo()
     if (!video.yuv_frame)
     {
         spdlog::critical("Failed to allocate memory for yuv frame");
+        return -1;
+    }
+    video.filtered_frame = av_frame_alloc();
+    if (!video.filtered_frame)
+    {
+        spdlog::critical("Failed to allocate memory for filtered frame");
         return -1;
     }
     video.packet = av_packet_alloc();
@@ -172,15 +377,15 @@ int Webcam::initVideo()
     }
 
     video.sws_ctx = sws_getContext(video.codecContext->width,
-                             video.codecContext->height,
-                             video.codecContext->pix_fmt,
-                             video.codecContext->width,
-                             video.codecContext->height,
-                             AV_PIX_FMT_YUV420P,
-                             SWS_BILINEAR,
-                             NULL,
-                             NULL,
-                             NULL);
+                                   video.codecContext->height,
+                                   video.codecContext->pix_fmt,
+                                   video.codecContext->width,
+                                   video.codecContext->height,
+                                   AV_PIX_FMT_YUV420P,
+                                   SWS_BILINEAR,
+                                   NULL,
+                                   NULL,
+                                   NULL);
     if (!video.sws_ctx)
     {
         spdlog::critical("failed to create sws context");
@@ -201,7 +406,7 @@ int Webcam::initVideo()
     if (ret < 0)
     {
         spdlog::critical("failed to create buffer source: {}", av_err2str(ret));
-        return - 1;
+        return -1;
     }
 
     video.sinkFilter = avfilter_graph_alloc_filter(video.filterGraph, avfilter_get_by_name("buffersink"), "out");
@@ -440,6 +645,7 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
         av_packet_unref(video.packet);
         return 0;
     }
+
     if (ret < 0)
     {
         spdlog::critical("Error while receiving video frame from decoder: {}", av_err2str(ret));
@@ -464,17 +670,13 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
                   video.yuv_frame->linesize);
         display_frame = video.yuv_frame;
     }
-    else
-    {
-        spdlog::debug("already in the correct format");
-    }
 
-    AVFrame *filtered_frame = av_frame_alloc();
+    AVFrame *filtered_frame = video.filtered_frame;
+    av_frame_unref(filtered_frame);
     ret = av_buffersrc_add_frame_flags(video.sourceFilter, display_frame, AV_BUFFERSRC_FLAG_KEEP_REF);
     if (ret < 0)
     {
         spdlog::critical("Error while feeding the video filter: {}", av_err2str(ret));
-        av_frame_free(&filtered_frame);
         av_packet_unref(video.packet);
         return -1;
     }
@@ -483,7 +685,6 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
     if (ret < 0)
     {
         spdlog::critical("Error while retrieving frame from the video filter: {}", av_err2str(ret));
-        av_frame_free(&filtered_frame);
         av_packet_unref(video.packet);
         return -1;
     }
@@ -495,7 +696,6 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
                          filtered_frame->data[1], filtered_frame->linesize[1],
                          filtered_frame->data[2], filtered_frame->linesize[2]);
 
-    av_frame_free(&filtered_frame);
     av_packet_unref(video.packet);
     return 0;
 }
@@ -562,8 +762,6 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
         int out_size = out_samples * dst_nb_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
         SDL_PutAudioStreamData(audioStream, audio.out_buf, out_size);
     }
-
-
 
     av_packet_unref(audio.packet);
     return 0;
@@ -639,7 +837,7 @@ int Webcam::close()
         return ret;
     }
     ret = muxor->close();
-    if(ret < 0)
+    if (ret < 0)
     {
         spdlog::critical("Failed to close muxor");
         return ret;
@@ -666,6 +864,10 @@ int Webcam::closeVideo()
     if (video.yuv_frame != NULL)
     {
         av_frame_free(&video.yuv_frame);
+    }
+    if (video.filtered_frame != NULL)
+    {
+        av_frame_free(&video.filtered_frame);
     }
     if (video.sws_ctx != NULL)
     {
@@ -713,4 +915,3 @@ int Webcam::closeAudio()
 
     return 0;
 }
-

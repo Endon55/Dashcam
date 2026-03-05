@@ -26,8 +26,8 @@ using namespace std;
     Take the input video and audio stream and combine them into an mp4 file.
 */
 
-
-struct OutputStream{
+struct OutputStream
+{
     AVStream *stream;
     AVCodecContext *codecContext;
 
@@ -48,7 +48,7 @@ struct OutputStream{
 class Muxor
 {
 private:
-    const char* filename;
+    const char *filename;
     struct OutputStream video_stream;
     struct OutputStream audio_stream;
 
@@ -57,19 +57,18 @@ private:
 
 public:
     Muxor(const char *filename);
-    int init(int width, int height);
+    int init(int width, int height, AVRational frameRate);
     int close();
     int write_video_frame(AVFrame *frame);
     int write_audio_frame(AVFrame *frame);
 
 private:
-    int add_stream(OutputStream *stream, AVFormatContext *fmtContext, const AVCodec **codec, enum AVCodecID codec_id);
+    int add_stream(OutputStream *stream, AVFormatContext *fmtContext, const AVCodec **codec, enum AVCodecID codec_id, AVRational frameRate);
     int open_video(AVFormatContext *fmtContext, const AVCodec *codec, OutputStream *stream, AVDictionary *opt_args);
     int open_audio(AVFormatContext *fmtContext, const AVCodec *codec, OutputStream *stream, AVDictionary *opt_args);
     int write_frame(AVFormatContext *outputContext, AVCodecContext *codecContext, AVStream *stream, AVFrame *frame, AVPacket *packet);
 
-    AVFrame *alloc_frame(enum AVPixelFormat pix_fmt, int width , int height);
+    AVFrame *alloc_frame(enum AVPixelFormat pix_fmt, int width, int height);
     AVFrame *alloc_audio_frame(enum AVSampleFormat sample_fmt, const AVChannelLayout *channel_layout, int sample_rate, int nb_samples);
     int close_stream(OutputStream stream);
 };
-

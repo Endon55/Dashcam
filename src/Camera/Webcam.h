@@ -41,6 +41,7 @@ struct Video
     AVCodecParameters *codecParams;
     AVFrame *frame;
     AVFrame *yuv_frame;
+    AVFrame *filtered_frame;
     AVPacket *packet;
     SwsContext *sws_ctx;
     AVFilterGraph *filterGraph;

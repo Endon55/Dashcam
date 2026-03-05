@@ -46,6 +46,7 @@ int main(int argc, char **argv)
    rect->w = app_state->width;
    rect->h = app_state->height;
 
+   spdlog::debug("Resolution {} x {}", rect->w, rect->h);
    if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
    {
       webcam->close();
