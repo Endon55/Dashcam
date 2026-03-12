@@ -9,7 +9,7 @@ if(NOT VCPKG_TARGET_TRIPLET)
   set(VCPKG_TARGET_TRIPLET "x64-linux")
 endif()
 
-project(Dashcam)
+#project(Dashcam)
 
 
 find_package(fmt CONFIG REQUIRED)

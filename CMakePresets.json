@@ -40,6 +40,8 @@
       },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja",
+        "PKG_CONFIG_EXECUTABLE": "/usr/bin/pkg-config",
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
         "CMAKE_SYSROOT": "/home/anthony/pi-sysroot",
         "VCPKG_HOST_TRIPLET": "x64-linux",
@@ -47,6 +49,13 @@
         "DBUS_SESSION_SOCKET_DIR": "/tmp",
         "CMAKE_C_COMPILER": "/usr/bin/aarch64-linux-gnu-gcc",
         "CMAKE_CXX_COMPILER": "/usr/bin/aarch64-linux-gnu-g++",
+        "CMAKE_AR": "/usr/bin/aarch64-linux-gnu-ar",
+        "CMAKE_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
+        "CMAKE_NM": "/usr/bin/aarch64-linux-gnu-nm",
+        "CMAKE_C_COMPILER_AR": "/usr/bin/aarch64-linux-gnu-ar",
+        "CMAKE_C_COMPILER_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
+        "CMAKE_CXX_COMPILER_AR": "/usr/bin/aarch64-linux-gnu-ar",
+        "CMAKE_CXX_COMPILER_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
         "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic",
         "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic"
       }
@@ -60,6 +69,8 @@
       },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja",
+        "PKG_CONFIG_EXECUTABLE": "/usr/bin/pkg-config",
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
         "CMAKE_SYSROOT": "/home/anthony/pi-sysroot",
         "CMAKE_BUILD_TYPE": "Debug",
@@ -68,6 +79,13 @@
         "DBUS_SESSION_SOCKET_DIR": "/tmp",
         "CMAKE_C_COMPILER": "/usr/bin/aarch64-linux-gnu-gcc",
         "CMAKE_CXX_COMPILER": "/usr/bin/aarch64-linux-gnu-g++",
+        "CMAKE_AR": "/usr/bin/aarch64-linux-gnu-ar",
+        "CMAKE_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
+        "CMAKE_NM": "/usr/bin/aarch64-linux-gnu-nm",
+        "CMAKE_C_COMPILER_AR": "/usr/bin/aarch64-linux-gnu-ar",
+        "CMAKE_C_COMPILER_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
+        "CMAKE_CXX_COMPILER_AR": "/usr/bin/aarch64-linux-gnu-ar",
+        "CMAKE_CXX_COMPILER_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
         "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic",
         "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic"
       }

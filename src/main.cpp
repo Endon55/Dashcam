@@ -5,21 +5,31 @@
 #include <inttypes.h>
 #include <iostream>
 #include "Window.h"
-#include "Camera/Webcam.h"
-#include "Camera/Muxor.h"
+
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include <spdlog/spdlog.h>
 
+#include "Camera/Webcam.h"
+#include "Camera/Muxor.h"
+#include "Camera/WebcamUtils.h"
+
+
 using namespace std;
 
-int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodec *codec, AVCodecParameters *params);
 
+int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodec *codec, AVCodecParameters *params);
 AVDeviceInfoList *infoList;
 AppState *app_state;
 SDL_Rect *rect;
 
 int main(int argc, char **argv)
 {
+   spdlog::set_level(spdlog::level::debug);
    int ret;
    int exitCode = 0;
    unsigned int count = 1000;
@@ -32,8 +42,21 @@ int main(int argc, char **argv)
        .width = 0,
        .height = 0};
 
-   spdlog::set_level(spdlog::level::debug);
-   Webcam *webcam = new Webcam(0);
+
+   Camera *cameras;
+   int nb_of_cams = 0;
+   ret = query_all_webcams(&cameras, &nb_of_cams);
+
+   if(ret < 0)
+   {
+      spdlog::critical("Failed to query for all webcams");
+      return -1;
+   }
+   
+   
+
+
+   Webcam *webcam = new Webcam(&cameras[0]);
    ret = webcam->init();
    if (ret < 0)
    {
@@ -46,7 +69,7 @@ int main(int argc, char **argv)
    rect->w = app_state->width;
    rect->h = app_state->height;
 
-   spdlog::debug("Resolution {} x {}", rect->w, rect->h);
+   
    if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
    {
       webcam->close();
@@ -74,7 +97,7 @@ int main(int argc, char **argv)
       SDL_Event ev;
       while (SDL_PollEvent(&ev))
       {
-         spdlog::debug("Processing SDL Events");
+         //spdlog::debug("Processing SDL Events");
          if (SDL_event(app_state, &ev) != SDL_APP_CONTINUE)
          {
             spdlog::info("App closed by ESC key press");
@@ -121,3 +144,5 @@ int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodec *codec, AVCodecParame
 
    return 1;
 }
+
+

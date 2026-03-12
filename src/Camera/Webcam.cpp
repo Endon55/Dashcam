@@ -161,18 +161,16 @@ namespace
     }
 }
 
-Webcam::Webcam(int deviceNumber)
+Webcam::Webcam(Camera *camera) : has_audio(camera->audio_hw != NULL)
 {
-    device = new char[dev_len];
-    strcpy(device, dev);
-    device[dev_len - 1] = '0' + deviceNumber;
+    this->camera = camera;
 }
 
 int Webcam::init()
 {
     avdevice_register_all();
     int ret;
-    spdlog::debug("Initializing Webcam: {}", device);
+    spdlog::debug("Initializing Webcam: {}", camera->device_name);
 
     ret = initVideo();
     if (ret < 0)
@@ -180,12 +178,16 @@ int Webcam::init()
         spdlog::critical("Failed to initialize video");
         return ret;
     }
-    ret = initAudio();
-    if (ret < 0)
+    if(has_audio)
     {
-        spdlog::critical("Failed to initialize audio");
-        return ret;
+        ret = initAudio();
+        if (ret < 0)
+        {
+            spdlog::critical("Failed to initialize audio");
+            return ret;
+        }
     }
+
 
     AVRational captureFrameRate = video.fmtContext->streams[video.stream_index]->avg_frame_rate;
     if (captureFrameRate.num <= 0 || captureFrameRate.den <= 0)
@@ -227,7 +229,7 @@ int Webcam::initVideo()
     }
 
     AVDictionary *videoInputOptions = NULL;
-    CaptureMode captureMode = probeBestCaptureMode(device);
+    CaptureMode captureMode = probeBestCaptureMode(camera->device_name);
     if (captureMode.width > 0 && captureMode.height > 0)
     {
         char videoSize[32];
@@ -250,7 +252,7 @@ int Webcam::initVideo()
                      captureMode.ffmpegInputFormat != nullptr ? captureMode.ffmpegInputFormat : "default");
     }
 
-    ret = avformat_open_input(&video.fmtContext, device, inputFormat, &videoInputOptions);
+    ret = avformat_open_input(&video.fmtContext, camera->device_name, inputFormat, &videoInputOptions);
     av_dict_free(&videoInputOptions);
     if (ret < 0)
     {
@@ -263,11 +265,14 @@ int Webcam::initVideo()
     spdlog::debug("Device count: {}", deviceCount);
     if (deviceCount > 0 && devicesInfo != NULL)
     {
+        //Linux will use multiple /dev/videoX slots to convey all the relevant information about a stream
+        //Both webcams I have for testing have the raw stream data in video0 but have metadata in video1
         for (int i = 0; i < devicesInfo->nb_devices; i++)
         {
             AVDeviceInfo *info = devicesInfo->devices[i];
+            
             spdlog::debug("Device Name: {}, Device Description: {}, Media Type: {}", info->device_name, info->device_description, (long)info->media_types);
-        }
+                }
     }
     else if (deviceCount < 0)
     {
@@ -313,19 +318,23 @@ int Webcam::initVideo()
     ret = avformat_find_stream_info(video.fmtContext, NULL);
     if (ret < 0)
     {
-        spdlog::critical("Error finding stream info: {}}", av_err2str(ret));
+        spdlog::warn("Unable to fully probe stream info, continuing with available metadata: {}", av_err2str(ret));
+    }
+    if (video.fmtContext->nb_streams == 0)
+    {
+        spdlog::critical("No streams were reported by the video device");
         return -1;
     }
     spdlog::debug("Video Streams: {}", video.fmtContext->nb_streams);
     for (int i = 0; i < video.fmtContext->nb_streams; i++)
     {
+        spdlog::debug("Stream {}", i);
         AVCodecParameters *pLocalCodecParameters = NULL;
         pLocalCodecParameters = video.fmtContext->streams[i]->codecpar;
         spdlog::debug("AVStream->time_base before open coded {}/{}", video.fmtContext->streams[i]->time_base.num, video.fmtContext->streams[i]->time_base.den);
         spdlog::debug("AVStream->r_frame_rate before open coded {}/{}", video.fmtContext->streams[i]->r_frame_rate.num, video.fmtContext->streams[i]->r_frame_rate.den);
         spdlog::debug("AVStream->start_time {}" PRId64, video.fmtContext->streams[i]->start_time);
         spdlog::debug("AVStream->duration {}" PRId64, video.fmtContext->streams[i]->duration);
-
         const AVCodec *pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
 
         if (pLocalCodec == NULL)
@@ -340,6 +349,17 @@ int Webcam::initVideo()
                 video.stream_index = i;
                 video.codecParams = pLocalCodecParameters;
                 video.codec = pLocalCodec;
+                AVDictionary *dict = video.fmtContext->streams[i]->metadata;
+                const AVDictionaryEntry *entry = NULL;
+                spdlog::debug("Video Stream Metadata");
+                for(int j = 0; j < av_dict_count(dict); j++)
+                {
+                    entry = av_dict_iterate(dict, entry);
+
+                    spdlog::debug("Key: {}, Value: {}", entry->key, entry->value);
+                }
+                
+                
             }
             spdlog::debug("Video Codec: resolution {} x {}", pLocalCodecParameters->width, pLocalCodecParameters->height);
         }
@@ -373,22 +393,6 @@ int Webcam::initVideo()
     if (avcodec_open2(video.codecContext, video.codec, NULL) < 0)
     {
         spdlog::critical("failed to open the video codec");
-        return -1;
-    }
-
-    video.sws_ctx = sws_getContext(video.codecContext->width,
-                                   video.codecContext->height,
-                                   video.codecContext->pix_fmt,
-                                   video.codecContext->width,
-                                   video.codecContext->height,
-                                   AV_PIX_FMT_YUV420P,
-                                   SWS_BILINEAR,
-                                   NULL,
-                                   NULL,
-                                   NULL);
-    if (!video.sws_ctx)
-    {
-        spdlog::critical("failed to create sws context");
         return -1;
     }
 
@@ -473,6 +477,7 @@ int Webcam::initVideo()
 int Webcam::initAudio()
 {
     spdlog::debug("Initializing Audio");
+
     audio = {};
     int ret = 0;
     audio.stream_index = -1;
@@ -493,13 +498,12 @@ int Webcam::initAudio()
         return -1;
     }
 
-    const char *audioDevice = "default";
 
     AVDictionary *options = NULL;
     av_dict_set(&options, "buffer_size", "65536", 0);
     av_dict_set(&options, "period_size", "2048", 0);
 
-    ret = avformat_open_input(&audio.fmtContext, audioDevice, inputFormat, &options);
+    ret = avformat_open_input(&audio.fmtContext, camera->audio_hw, inputFormat, &options);
     av_dict_free(&options);
     if (ret < 0)
     {
@@ -508,7 +512,7 @@ int Webcam::initAudio()
     }
 
     AVDeviceInfoList *devicesInfo;
-    spdlog::debug("audio device count: {}", avdevice_list_devices(audio.fmtContext, &devicesInfo));
+    spdlog::critical("audio device count: {}", avdevice_list_devices(audio.fmtContext, &devicesInfo));
     for (int i = 0; i < devicesInfo->nb_devices; i++)
     {
         AVDeviceInfo *info = devicesInfo->devices[i];
@@ -656,6 +660,24 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
     AVFrame *display_frame = video.frame;
     if (display_frame->format != AV_PIX_FMT_YUV420P)
     {
+        video.sws_ctx = sws_getCachedContext(video.sws_ctx,
+                                             display_frame->width,
+                                             display_frame->height,
+                                             static_cast<AVPixelFormat>(display_frame->format),
+                                             video.codecContext->width,
+                                             video.codecContext->height,
+                                             AV_PIX_FMT_YUV420P,
+                                             SWS_BILINEAR,
+                                             NULL,
+                                             NULL,
+                                             NULL);
+        if (!video.sws_ctx)
+        {
+            spdlog::critical("failed to create sws context for input frame format {}", display_frame->format);
+            av_packet_unref(video.packet);
+            return -1;
+        }
+
         if (av_frame_make_writable(video.yuv_frame) < 0)
         {
             av_packet_unref(video.packet);
@@ -665,7 +687,7 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
                   display_frame->data,
                   display_frame->linesize,
                   0,
-                  video.codecContext->height,
+                  display_frame->height,
                   video.yuv_frame->data,
                   video.yuv_frame->linesize);
         display_frame = video.yuv_frame;
@@ -821,7 +843,7 @@ int Webcam::stopAudioCapture()
 
 int Webcam::close()
 {
-    spdlog::debug("Closing Webcam: {}", device);
+    spdlog::debug("Closing Webcam: {}", camera->device_name);
     int ret;
     stopAudioCapture();
     ret = closeVideo();

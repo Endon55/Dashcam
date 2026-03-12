@@ -26,11 +26,11 @@ extern "C"
 
 #include "Macros.h"
 #include "Muxor.h"
+#include "WebcamUtils.h"
 
 using namespace std;
 
-const char dev[] = "/dev/videoX";
-const int dev_len = 11;
+
 
 struct Video
 {
@@ -69,13 +69,14 @@ struct Audio
 class Webcam
 {
 public:
-    char *device;
     struct Video video;
     struct Audio audio;
+    struct Camera *camera;
     Muxor *muxor;
+    const bool has_audio;
 
 public:
-    Webcam(int deviceNumber);
+    Webcam(Camera *camera);
     int init();
     int close();
     int processVideoFrame(SDL_Texture *texture, SDL_Rect *rect);
