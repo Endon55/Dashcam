@@ -9,7 +9,9 @@ add_executable(Dashcam main.cpp)
 
 set(sources 
 Window.h
-Window.cpp)
+Window.cpp
+Settings.h
+Settings.cpp)
 
 add_library(source ${sources})
 target_link_libraries(source PRIVATE libjpeg-turbo::turbojpeg-static SDL3::SDL3)

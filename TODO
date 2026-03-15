@@ -1,0 +1,2 @@
+-Rework the capture_priority in webcamutils to be a more robust system.
+--Probably combine the probe best mode and find all webcams step to avoid redundant system calls.

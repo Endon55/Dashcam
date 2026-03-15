@@ -70,5 +70,5 @@ private:
 
     AVFrame *alloc_frame(enum AVPixelFormat pix_fmt, int width, int height);
     AVFrame *alloc_audio_frame(enum AVSampleFormat sample_fmt, const AVChannelLayout *channel_layout, int sample_rate, int nb_samples);
-    int close_stream(OutputStream stream);
+    int close_stream(OutputStream *stream);
 };

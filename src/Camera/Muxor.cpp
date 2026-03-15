@@ -444,35 +444,67 @@ int Muxor::add_stream(OutputStream *stream, AVFormatContext *fmtContext, const A
 }
 int Muxor::close()
 {
-    int ret;
-    ret = close_stream(video_stream);
-    ret = close_stream(audio_stream);
-    return ret;
+    if (!outputContext)
+    {
+        return 0;
+    }
+
+    int ret = 0;
+    if (outputContext->pb != NULL)
+    {
+        ret = av_write_trailer(outputContext);
+        if (ret < 0)
+        {
+            spdlog::critical("Failed to write trailer: {}", av_err2str(ret));
+        }
+    }
+
+    close_stream(&video_stream);
+    close_stream(&audio_stream);
+
+    if (!(outputContext->oformat->flags & AVFMT_NOFILE) && outputContext->pb != NULL)
+    {
+        avio_closep(&outputContext->pb);
+    }
+
+    avformat_free_context(outputContext);
+    outputContext = NULL;
+
+    return ret < 0 ? ret : 0;
 }
 
-int Muxor::close_stream(OutputStream stream)
+int Muxor::close_stream(OutputStream *stream)
 {
-    av_write_trailer(outputContext);
+    if (stream == NULL)
+    {
+        return 0;
+    }
 
-    if (stream.frame)
+    if (stream->frame)
     {
-        av_frame_free(&stream.frame);
+        av_frame_free(&stream->frame);
     }
-    if (stream.tmp_frame)
+    if (stream->tmp_frame)
     {
-        av_frame_free(&stream.tmp_frame);
+        av_frame_free(&stream->tmp_frame);
     }
-    if (stream.tmp_packet)
+    if (stream->tmp_packet)
     {
-        av_packet_free(&stream.tmp_packet);
+        av_packet_free(&stream->tmp_packet);
     }
-    if (stream.swr_ctx)
+    if (stream->swr_ctx)
     {
-        swr_close(stream.swr_ctx);
+        swr_free(&stream->swr_ctx);
     }
-    if (stream.sws_ctx)
+    if (stream->sws_ctx)
     {
-        sws_freeContext(stream.sws_ctx);
+        sws_freeContext(stream->sws_ctx);
+        stream->sws_ctx = NULL;
     }
+    if (stream->codecContext)
+    {
+        avcodec_free_context(&stream->codecContext);
+    }
+
     return 0;
 }
