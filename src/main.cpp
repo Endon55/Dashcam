@@ -19,7 +19,7 @@
 #include "Camera/WebcamUtils.h"
 #include "Settings.h"
 
-int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodec *codec, AVCodecParameters *params);
+int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext);
 AVDeviceInfoList *infoList;
 AppState *app_state;
 SDL_Rect *rect;
@@ -31,7 +31,7 @@ int main(int argc, char **argv)
    int exitCode = 0;
    unsigned int count = 1000;
    bool sdlInitialized = false;
-   
+
    Camera *cameras = NULL;
    Webcam *webcam = NULL;
    int nb_of_cams = 0;
@@ -50,7 +50,6 @@ int main(int argc, char **argv)
    *app_state = (AppState){
        .width = 0,
        .height = 0};
-
 
    ret = query_all_webcams(&cameras, &nb_of_cams);
    if (ret < 0)
@@ -75,7 +74,6 @@ int main(int argc, char **argv)
       goto cleanup;
    }
 
-
    // return 0;
 
    webcam = new Webcam(&cameras[0]);
@@ -91,24 +89,25 @@ int main(int argc, char **argv)
    rect->w = app_state->width;
    rect->h = app_state->height;
 
-   if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
-   {
-      exitCode = -1;
-      goto cleanup;
-   }
-   sdlInitialized = true;
    app_state->audio_spec = (SDL_AudioSpec *)malloc(sizeof(SDL_AudioSpec));
    if (app_state->audio_spec == NULL)
    {
       exitCode = -1;
       goto cleanup;
    }
-   ret = sdl_load_audio_spec(app_state->audio_spec, webcam->audio.codec, webcam->audio.codecParams);
+   ret = sdl_load_audio_spec(app_state->audio_spec, webcam->audio.codecContext);
    if (ret < 0)
    {
       exitCode = ret;
       goto cleanup;
    }
+
+   if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
+   {
+      exitCode = -1;
+      goto cleanup;
+   }
+   sdlInitialized = true;
 
    ret = webcam->startAudioCapture(app_state->audio_stream);
    if (ret < 0)
@@ -215,10 +214,15 @@ cleanup:
    return exitCode;
 }
 
-int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodec *codec, AVCodecParameters *params)
+int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext)
 {
-   spec->channels = params->ch_layout.nb_channels;
-   spec->freq = params->sample_rate;
+   if (codecContext == NULL)
+   {
+      return -1;
+   }
+
+   spec->channels = codecContext->ch_layout.nb_channels > 0 ? codecContext->ch_layout.nb_channels : 2;
+   spec->freq = codecContext->sample_rate > 0 ? codecContext->sample_rate : 48000;
    spec->format = SDL_AUDIO_S16LE;
 
    return 1;

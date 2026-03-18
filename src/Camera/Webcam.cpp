@@ -392,17 +392,6 @@ int Webcam::initAudio()
         return -1;
     }
 
-    AVDeviceInfoList *devicesInfo;
-    spdlog::critical("audio device count: {}", avdevice_list_devices(audio.fmtContext, &devicesInfo));
-    for (int i = 0; i < devicesInfo->nb_devices; i++)
-    {
-        AVDeviceInfo *info = devicesInfo->devices[i];
-        if (strncmp("hw", info->device_name, 2) == 0)
-        {
-            spdlog::debug("Device Name: {}, Device Description: {}, Media Type: {}", info->device_name, info->device_description, (long)info->media_types);
-            spdlog::debug("Device Name: {}, ", info->device_name);
-        }
-    }
     audio.frame = av_frame_alloc();
     if (!audio.frame)
     {
@@ -415,7 +404,7 @@ int Webcam::initAudio()
         spdlog::critical("Failed to allocate memory for packet");
         return -1;
     }
-
+    spdlog::debug("NB of streams: {}", audio.fmtContext->nb_streams);
     for (int i = 0; i < audio.fmtContext->nb_streams; i++)
     {
         AVCodecParameters *pLocalCodecParameters = NULL;
@@ -447,7 +436,7 @@ int Webcam::initAudio()
                 }
             }
 
-            spdlog::debug("Audio Codec: {} channels, sample rate {}", pLocalCodecParameters->ch_layout.nb_channels, pLocalCodecParameters->sample_rate);
+            spdlog::debug("Audio Codec: {}, Channels: {}, Sample rate: {}", pLocalCodec->name, pLocalCodecParameters->ch_layout.nb_channels, pLocalCodecParameters->sample_rate);
         }
     }
 
@@ -456,6 +445,7 @@ int Webcam::initAudio()
         spdlog::critical("Couldn't find an audio stream");
         return -1;
     }
+
     audio.codecContext = avcodec_alloc_context3(audio.codec);
     if (!audio.codecContext)
     {
@@ -657,51 +647,93 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
     }
 
     ret = avcodec_send_packet(audio.codecContext, audio.packet);
-    if (ret < 0)
+    if (ret < 0 && ret != AVERROR(EAGAIN))
     {
         spdlog::debug("Error while sending packet to decoder: {}", av_err2str(ret));
         av_packet_unref(audio.packet);
         return 0;
     }
 
-    ret = avcodec_receive_frame(audio.codecContext, audio.frame);
-    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+    while (true)
     {
-        av_packet_unref(audio.packet);
-        return 0;
-    }
-    if (ret < 0)
-    {
-        spdlog::critical("Error while receiving frame from decoder: {}", av_err2str(ret));
-        av_packet_unref(audio.packet);
-        return -1;
-    }
+        ret = avcodec_receive_frame(audio.codecContext, audio.frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+        {
+            break;
+        }
+        if (ret < 0)
+        {
+            spdlog::critical("Error while receiving frame from decoder: {}", av_err2str(ret));
+            av_packet_unref(audio.packet);
+            return -1;
+        }
 
-    int dst_nb_samples = (int)av_rescale_rnd(
-        swr_get_delay(audio.swr_ctx, audio.codecContext->sample_rate) + audio.frame->nb_samples,
-        audio.codecContext->sample_rate,
-        audio.codecContext->sample_rate,
-        AV_ROUND_UP);
-    int dst_nb_channels = audio.codecContext->ch_layout.nb_channels;
-    int dst_buf_size = av_samples_get_buffer_size(
-        NULL, dst_nb_channels, dst_nb_samples, AV_SAMPLE_FMT_S16, 1);
-    if (dst_buf_size > audio.out_buf_size)
-    {
-        audio.out_buf = (uint8_t *)av_realloc(audio.out_buf, dst_buf_size);
-        audio.out_buf_size = dst_buf_size;
-    }
+        const int dst_nb_samples = static_cast<int>(av_rescale_rnd(
+            swr_get_delay(audio.swr_ctx, audio.codecContext->sample_rate) + audio.frame->nb_samples,
+            audio.codecContext->sample_rate,
+            audio.codecContext->sample_rate,
+            AV_ROUND_UP));
+        const int dst_nb_channels = audio.out_ch_layout.nb_channels > 0 ? audio.out_ch_layout.nb_channels : audio.codecContext->ch_layout.nb_channels;
+        if (dst_nb_channels <= 0)
+        {
+            spdlog::critical("Invalid output channel count while processing audio frame");
+            av_packet_unref(audio.packet);
+            return -1;
+        }
 
-    uint8_t *out_planes[1] = {audio.out_buf};
-    int out_samples = swr_convert(
-        audio.swr_ctx,
-        out_planes,
-        dst_nb_samples,
-        (const uint8_t **)audio.frame->data,
-        audio.frame->nb_samples);
-    if (out_samples > 0)
-    {
-        int out_size = out_samples * dst_nb_channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
-        SDL_PutAudioStreamData(audioStream, audio.out_buf, out_size);
+        const int dst_buf_size = av_samples_get_buffer_size(
+            NULL, dst_nb_channels, dst_nb_samples, AV_SAMPLE_FMT_S16, 1);
+        if (dst_buf_size < 0)
+        {
+            spdlog::critical("Failed to compute audio output buffer size: {}", av_err2str(dst_buf_size));
+            av_packet_unref(audio.packet);
+            return -1;
+        }
+
+        // Keep our local conversion buffer large enough for the current frame.
+        if (dst_buf_size > audio.out_buf_size)
+        {
+            uint8_t *new_buf = static_cast<uint8_t *>(av_realloc(audio.out_buf, dst_buf_size));
+            if (!new_buf)
+            {
+                spdlog::critical("Failed to reallocate audio output buffer");
+                av_packet_unref(audio.packet);
+                return -1;
+            }
+            audio.out_buf = new_buf;
+            audio.out_buf_size = dst_buf_size;
+        }
+
+        uint8_t *out_planes[1] = {audio.out_buf};
+        const int out_samples = swr_convert(
+            audio.swr_ctx,
+            out_planes,
+            dst_nb_samples,
+            (const uint8_t **)audio.frame->extended_data,
+            audio.frame->nb_samples);
+        if (out_samples < 0)
+        {
+            spdlog::critical("Audio resample failed: {}", av_err2str(out_samples));
+            av_packet_unref(audio.packet);
+            return -1;
+        }
+        if (out_samples > 0)
+        {
+            const int out_size = av_samples_get_buffer_size(
+                NULL, dst_nb_channels, out_samples, AV_SAMPLE_FMT_S16, 1);
+            if (out_size < 0)
+            {
+                spdlog::critical("Failed to compute converted audio size: {}", av_err2str(out_size));
+                av_packet_unref(audio.packet);
+                return -1;
+            }
+            if (!SDL_PutAudioStreamData(audioStream, audio.out_buf, out_size))
+            {
+                spdlog::warn("Failed to queue audio to SDL stream: {}", SDL_GetError());
+            }
+        }
+
+        av_frame_unref(audio.frame);
     }
 
     av_packet_unref(audio.packet);
