@@ -35,6 +35,7 @@ int Muxor::init(int width, int height, AVRational frameRate)
 
     audio_stream = {0};
     video_stream = {0};
+    video_stream.src_time_base = AVRational{0, 1};
     video_stream.width = width;
     video_stream.height = height;
     audio_stream.width = width;
@@ -162,9 +163,13 @@ int Muxor::open_audio(AVFormatContext *fmtContext, const AVCodec *codec, OutputS
     stream->tincr2 = 2 * M_PI * 110.0 / codecContext->sample_rate / codecContext->sample_rate;
 
     if (codecContext->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)
-        nb_samples = 10000;
+        nb_samples = 1024;
     else
         nb_samples = codecContext->frame_size;
+    if (nb_samples <= 0)
+    {
+        nb_samples = 1024;
+    }
 
     stream->frame = alloc_audio_frame(codecContext->sample_fmt, &codecContext->ch_layout, codecContext->sample_rate, nb_samples);
     stream->tmp_frame = alloc_audio_frame(AV_SAMPLE_FMT_S16, &codecContext->ch_layout, codecContext->sample_rate, nb_samples);
@@ -176,24 +181,14 @@ int Muxor::open_audio(AVFormatContext *fmtContext, const AVCodec *codec, OutputS
         return -1;
     }
 
-    stream->swr_ctx = swr_alloc();
-    if (!stream->swr_ctx)
+    // Initialize when the first captured frame arrives so input format/rate/layout are accurate.
+    stream->swr_ctx = NULL;
+    stream->audio_fifo = av_audio_fifo_alloc(codecContext->sample_fmt,
+                                             codecContext->ch_layout.nb_channels,
+                                             nb_samples * 4);
+    if (!stream->audio_fifo)
     {
-        spdlog::critical("Failed to allocate resampler context");
-        return -1;
-    }
-
-    av_opt_set_chlayout(stream->swr_ctx, "in_chlayout", &codecContext->ch_layout, 0);
-    av_opt_set_int(stream->swr_ctx, "in_sample_rate", codecContext->sample_rate, 0);
-    av_opt_set_sample_fmt(stream->swr_ctx, "in_sample_fmt", AV_SAMPLE_FMT_S16, 0);
-    av_opt_set_chlayout(stream->swr_ctx, "out_chlayout", &codecContext->ch_layout, 0);
-    av_opt_set_int(stream->swr_ctx, "out_sample_rate", codecContext->sample_rate, 0);
-    av_opt_set_sample_fmt(stream->swr_ctx, "out_sample_fmt", codecContext->sample_fmt, 0);
-
-    ret = swr_init(stream->swr_ctx);
-    if (ret < 0)
-    {
-        spdlog::critical("Failed to initialize resample context");
+        spdlog::critical("Failed to allocate audio fifo");
         return -1;
     }
 
@@ -252,41 +247,216 @@ int Muxor::open_video(AVFormatContext *fmtContext, const AVCodec *codec, OutputS
 int Muxor::write_audio_frame(AVFrame *frame)
 {
     int ret;
-    int dst_nb_samples;
     if (frame)
     {
-        dst_nb_samples = swr_get_delay(audio_stream.swr_ctx, audio_stream.codecContext->sample_rate) + frame->nb_samples;
-        // essentially asserting that the delay is 0
-        av_assert0(dst_nb_samples == frame->nb_samples);
+        const int outSampleRate = audio_stream.codecContext->sample_rate;
+        const int inSampleRate = frame->sample_rate > 0 ? frame->sample_rate : outSampleRate;
+        AVChannelLayout inLayout = frame->ch_layout;
+        if (inLayout.nb_channels <= 0)
+        {
+            av_channel_layout_copy(&inLayout, &audio_stream.codecContext->ch_layout);
+        }
+
+        if (!audio_stream.swr_ctx)
+        {
+            ret = swr_alloc_set_opts2(&audio_stream.swr_ctx,
+                                      &audio_stream.codecContext->ch_layout,
+                                      audio_stream.codecContext->sample_fmt,
+                                      outSampleRate,
+                                      &inLayout,
+                                      (AVSampleFormat)frame->format,
+                                      inSampleRate,
+                                      0,
+                                      NULL);
+            if (ret < 0 || !audio_stream.swr_ctx)
+            {
+                spdlog::critical("Failed to allocate mux audio resampler: {}", av_err2str(ret));
+                av_channel_layout_uninit(&inLayout);
+                return -1;
+            }
+
+            ret = swr_init(audio_stream.swr_ctx);
+            if (ret < 0)
+            {
+                spdlog::critical("Failed to initialize mux audio resampler: {}", av_err2str(ret));
+                av_channel_layout_uninit(&inLayout);
+                return -1;
+            }
+        }
+
+        av_channel_layout_uninit(&inLayout);
+
+        int dst_nb_samples = av_rescale_rnd(swr_get_delay(audio_stream.swr_ctx, inSampleRate) + frame->nb_samples,
+                                            outSampleRate,
+                                            inSampleRate,
+                                            AV_ROUND_UP);
+        if (dst_nb_samples <= 0)
+        {
+            return 0;
+        }
+
+        const int outChannels = audio_stream.codecContext->ch_layout.nb_channels;
+        uint8_t **convertedData = NULL;
+        ret = av_samples_alloc_array_and_samples(&convertedData,
+                                                 NULL,
+                                                 outChannels,
+                                                 dst_nb_samples,
+                                                 audio_stream.codecContext->sample_fmt,
+                                                 0);
+        if (ret < 0)
+        {
+            spdlog::critical("Failed to allocate converted audio samples: {}", av_err2str(ret));
+            return -1;
+        }
+
+        ret = swr_convert(audio_stream.swr_ctx,
+                          convertedData,
+                          dst_nb_samples,
+                          (const uint8_t **)frame->extended_data,
+                          frame->nb_samples);
+        if (ret < 0)
+        {
+            spdlog::critical("Failed convert swr");
+            if (convertedData)
+            {
+                av_freep(&convertedData[0]);
+                av_freep(&convertedData);
+            }
+            return -1;
+        }
+
+        const int convertedSamples = ret;
+        const int fifoSpaceNeeded = av_audio_fifo_size(audio_stream.audio_fifo) + convertedSamples;
+        ret = av_audio_fifo_realloc(audio_stream.audio_fifo, fifoSpaceNeeded);
+        if (ret < 0)
+        {
+            spdlog::critical("Failed to grow audio fifo: {}", av_err2str(ret));
+            if (convertedData)
+            {
+                av_freep(&convertedData[0]);
+                av_freep(&convertedData);
+            }
+            return -1;
+        }
+
+        ret = av_audio_fifo_write(audio_stream.audio_fifo, (void **)convertedData, convertedSamples);
+        if (ret < convertedSamples)
+        {
+            spdlog::critical("Failed to write converted audio to fifo");
+            if (convertedData)
+            {
+                av_freep(&convertedData[0]);
+                av_freep(&convertedData);
+            }
+            return -1;
+        }
+
+        if (convertedData)
+        {
+            av_freep(&convertedData[0]);
+            av_freep(&convertedData);
+        }
+    }
+
+    const int encoderFrameSize = audio_stream.codecContext->frame_size > 0 ? audio_stream.codecContext->frame_size : 1024;
+    bool draining = (frame == NULL);
+    while (av_audio_fifo_size(audio_stream.audio_fifo) >= encoderFrameSize || (draining && av_audio_fifo_size(audio_stream.audio_fifo) > 0))
+    {
+        int nbOut = encoderFrameSize;
+        if (draining)
+        {
+            nbOut = FFMIN(av_audio_fifo_size(audio_stream.audio_fifo), encoderFrameSize);
+        }
+
+        av_frame_unref(audio_stream.frame);
+        audio_stream.frame->nb_samples = nbOut;
+        audio_stream.frame->format = audio_stream.codecContext->sample_fmt;
+        audio_stream.frame->sample_rate = audio_stream.codecContext->sample_rate;
+        ret = av_channel_layout_copy(&audio_stream.frame->ch_layout, &audio_stream.codecContext->ch_layout);
+        if (ret < 0)
+        {
+            spdlog::critical("Failed to set mux audio channel layout: {}", av_err2str(ret));
+            return -1;
+        }
+
+        ret = av_frame_get_buffer(audio_stream.frame, 0);
+        if (ret < 0)
+        {
+            spdlog::critical("Failed to allocate mux audio frame buffer: {}", av_err2str(ret));
+            return -1;
+        }
 
         ret = av_frame_make_writable(audio_stream.frame);
         if (ret < 0)
         {
-            spdlog::critical("Failed to make frame writable");
+            spdlog::critical("Failed to make frame writable: {}", av_err2str(ret));
             return -1;
         }
-        ret = swr_convert(audio_stream.swr_ctx, audio_stream.frame->data, dst_nb_samples, (const uint8_t **)frame->data, frame->nb_samples);
+
+        ret = av_audio_fifo_read(audio_stream.audio_fifo, (void **)audio_stream.frame->data, nbOut);
+        if (ret < nbOut)
+        {
+            spdlog::critical("Failed to read enough samples from audio fifo");
+            return -1;
+        }
+
+        audio_stream.frame->pts = av_rescale_q(audio_stream.samples_count,
+                                               (AVRational){1, audio_stream.codecContext->sample_rate},
+                                               audio_stream.codecContext->time_base);
+        audio_stream.samples_count += nbOut;
+
+        ret = write_frame(outputContext,
+                          audio_stream.codecContext,
+                          audio_stream.stream,
+                          audio_stream.frame,
+                          audio_stream.tmp_packet);
         if (ret < 0)
         {
-            spdlog::critical("Failed convert swr");
-            return -1;
+            return ret;
         }
-
-        frame = audio_stream.frame;
-        frame->pts = av_rescale_q(audio_stream.samples_count, (AVRational){1, audio_stream.codecContext->sample_rate}, audio_stream.codecContext->time_base);
-        audio_stream.samples_count += dst_nb_samples;
     }
 
-    return write_frame(outputContext, audio_stream.codecContext, audio_stream.stream, frame, audio_stream.tmp_packet);
+    if (!frame)
+    {
+        return write_frame(outputContext, audio_stream.codecContext, audio_stream.stream, NULL, audio_stream.tmp_packet);
+    }
+
+    return 0;
 }
 
-int Muxor::write_video_frame(AVFrame *frame)
+int Muxor::write_video_frame(AVFrame *frame, AVRational srcTimeBase)
 {
+    if (!frame)
+    {
+        return 0;
+    }
+
+    if (srcTimeBase.num > 0 && srcTimeBase.den > 0)
+    {
+        video_stream.src_time_base = srcTimeBase;
+    }
+
+    if (frame->pts != AV_NOPTS_VALUE && video_stream.src_time_base.num > 0 && video_stream.src_time_base.den > 0)
+    {
+        frame->pts = av_rescale_q(frame->pts, video_stream.src_time_base, video_stream.codecContext->time_base);
+        if (video_stream.next_pts > 0 && frame->pts < video_stream.next_pts)
+        {
+            frame->pts = video_stream.next_pts;
+        }
+        video_stream.next_pts = frame->pts + 1;
+    }
+    else
+    {
+        frame->pts = video_stream.next_pts++;
+    }
+
     return write_frame(outputContext, video_stream.codecContext, video_stream.stream, frame, video_stream.tmp_packet);
 }
 
 int Muxor::write_frame(AVFormatContext *outputContext, AVCodecContext *codecContext, AVStream *stream, AVFrame *frame, AVPacket *packet)
 {
+    std::lock_guard<std::mutex> lock(mux_write_mutex);
+
     int ret = avcodec_send_frame(codecContext, frame);
     if (ret < 0)
     {
@@ -315,9 +485,10 @@ int Muxor::write_frame(AVFormatContext *outputContext, AVCodecContext *codecCont
             spdlog::critical("Failed to write ou8tput packet: {}", av_err2str(ret));
             return -1;
         }
+        av_packet_unref(packet);
     }
 
-    return AVERROR_EOF ? 1 : 0;
+    return 0;
 }
 /*
     Takes in a locally defined OutputStream struct to hold all the values for the stream. Fmt Context will be the same object between video and audio streams. Codec is the a pointer to where you want the value of codec to be stored and Codec ID is the value of the codec you want fetched and stored.
@@ -384,6 +555,7 @@ int Muxor::add_stream(OutputStream *stream, AVFormatContext *fmtContext, const A
         av_channel_layout_copy(&codecContext->ch_layout, &channel_layout);
 
         stream->stream->time_base = (AVRational){1, codecContext->sample_rate};
+        codecContext->time_base = stream->stream->time_base;
         break;
     }
 
@@ -452,6 +624,23 @@ int Muxor::close()
     int ret = 0;
     if (outputContext->pb != NULL)
     {
+        int audioFlushRet = write_audio_frame(NULL);
+        if (audioFlushRet < 0)
+        {
+            spdlog::critical("Failed to flush audio encoder");
+            ret = audioFlushRet;
+        }
+
+        int videoFlushRet = write_frame(outputContext, video_stream.codecContext, video_stream.stream, NULL, video_stream.tmp_packet);
+        if (videoFlushRet < 0)
+        {
+            spdlog::critical("Failed to flush video encoder");
+            if (ret == 0)
+            {
+                ret = videoFlushRet;
+            }
+        }
+
         ret = av_write_trailer(outputContext);
         if (ret < 0)
         {
@@ -495,6 +684,11 @@ int Muxor::close_stream(OutputStream *stream)
     if (stream->swr_ctx)
     {
         swr_free(&stream->swr_ctx);
+    }
+    if (stream->audio_fifo)
+    {
+        av_audio_fifo_free(stream->audio_fifo);
+        stream->audio_fifo = NULL;
     }
     if (stream->sws_ctx)
     {

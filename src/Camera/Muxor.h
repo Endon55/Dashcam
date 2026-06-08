@@ -8,7 +8,9 @@ extern "C"
 #include <libavdevice/avdevice.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
+#include <libavutil/audio_fifo.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
 #include <libavutil/rational.h>
 #include <libavutil/time.h>
 #include <libswscale/swscale.h>
@@ -18,6 +20,7 @@ extern "C"
 #include <libavfilter/buffersink.h>
 }
 #include <spdlog/spdlog.h>
+#include <mutex>
 #include "Macros.h"
 
 using namespace std;
@@ -33,6 +36,7 @@ struct OutputStream
 
     int64_t next_pts;
     int samples_count;
+    AVRational src_time_base;
     AVFrame *frame;
     AVFrame *tmp_frame;
     int width, height;
@@ -43,6 +47,7 @@ struct OutputStream
 
     struct SwsContext *sws_ctx;
     struct SwrContext *swr_ctx;
+    AVAudioFifo *audio_fifo;
 };
 
 class Muxor
@@ -51,6 +56,7 @@ private:
     const char *filename;
     struct OutputStream video_stream;
     struct OutputStream audio_stream;
+    std::mutex mux_write_mutex;
 
     const AVOutputFormat *fmt;
     AVFormatContext *outputContext;
@@ -59,7 +65,7 @@ public:
     Muxor(const char *filename);
     int init(int width, int height, AVRational frameRate);
     int close();
-    int write_video_frame(AVFrame *frame);
+    int write_video_frame(AVFrame *frame, AVRational srcTimeBase);
     int write_audio_frame(AVFrame *frame);
 
 private:

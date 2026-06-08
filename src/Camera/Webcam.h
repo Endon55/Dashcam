@@ -14,6 +14,7 @@ extern "C"
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
 #include <libavutil/rational.h>
 #include <libavutil/time.h>
 #include <libswscale/swscale.h>
@@ -29,8 +30,6 @@ extern "C"
 #include "WebcamUtils.h"
 
 using namespace std;
-
-
 
 struct Video
 {
@@ -65,7 +64,6 @@ struct Audio
     int out_buf_size;
 };
 
-
 class Webcam
 {
 public:
@@ -84,7 +82,6 @@ public:
     int startAudioCapture(SDL_AudioStream *audioStream);
     int stopAudioCapture();
 
-
 private:
     int initVideo();
     int initAudio();
@@ -94,10 +91,10 @@ private:
     int writeEncodedPacket(AVCodecContext *encContext, AVStream *stream);
     int flushRecorderEncoder(AVCodecContext *encContext, AVStream *stream);
 
-
 private:
     std::thread audioThread;
     std::atomic<bool> audioThreadRunning{false};
     std::atomic<bool> audioThreadStopRequested{false};
     SDL_AudioStream *audioStreamTarget = nullptr;
+    std::atomic<int64_t> videoPtsStartUs{AV_NOPTS_VALUE};
 };
