@@ -104,14 +104,17 @@ int Webcam::initVideo()
                  camera->capture_mode->fps,
                  camera->capture_mode->input_fmt != nullptr ? camera->capture_mode->input_fmt : "default");
 
+    spdlog::info("Opening Input");
     ret = avformat_open_input(&video.fmtContext, camera->device_name, inputFormat, &videoInputOptions);
+    spdlog::info("Freeing Dict");
     av_dict_free(&videoInputOptions);
     if (ret < 0)
     {
         spdlog::critical("Error opening av format: {}", av_err2str(ret));
         return ret;
     }
-
+    /*
+    spdlog::info("Listing Devices");
     AVDeviceInfoList *devicesInfo = NULL;
     int deviceCount = avdevice_list_devices(video.fmtContext, &devicesInfo);
     spdlog::debug("Device count: {}", deviceCount);
@@ -135,7 +138,7 @@ int Webcam::initVideo()
     {
         avdevice_free_list_devices(&devicesInfo);
     }
-
+*/
     video.frame = av_frame_alloc();
     if (!video.frame)
     {
