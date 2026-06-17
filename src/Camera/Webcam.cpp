@@ -690,6 +690,12 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
             muxor->write_audio_frame(audio.frame);
         }
 
+        if (mute.load())
+        {
+            av_frame_unref(audio.frame);
+            continue;
+        }
+
         int outChannels = audio.out_ch_layout.nb_channels > 0 ? audio.out_ch_layout.nb_channels : 2;
         int dst_nb_samples = av_rescale_rnd(swr_get_delay(audio.swr_ctx, audio.codecContext->sample_rate) + audio.frame->nb_samples,
                                             audio.codecContext->sample_rate,
@@ -743,7 +749,7 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
             return -1;
         }
 
-        if (!mute.load() && !SDL_PutAudioStreamData(audioStream, audio.out_buf, data_size))
+        if (!SDL_PutAudioStreamData(audioStream, audio.out_buf, data_size))
         {
             spdlog::warn("Failed to queue audio to SDL stream: {}", SDL_GetError());
         }
