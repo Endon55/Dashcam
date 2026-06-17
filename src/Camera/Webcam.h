@@ -6,6 +6,8 @@
 #include <thread>
 #include <mutex>
 #include <SDL3/SDL.h>
+#include <atomic>
+
 extern "C"
 {
 #include <libavcodec/avcodec.h>
@@ -81,6 +83,7 @@ public:
     int processAudioFrame(SDL_AudioStream *audioStream);
     int startAudioCapture(SDL_AudioStream *audioStream);
     int stopAudioCapture();
+    int muteAudioPlayback(bool mute);
 
 private:
     int initVideo();
@@ -97,4 +100,5 @@ private:
     std::atomic<bool> audioThreadStopRequested{false};
     SDL_AudioStream *audioStreamTarget = nullptr;
     std::atomic<int64_t> videoPtsStartUs{AV_NOPTS_VALUE};
+    std::atomic<bool> mute{true};
 };

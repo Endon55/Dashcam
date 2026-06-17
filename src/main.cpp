@@ -23,6 +23,9 @@ int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext)
 void createGUI();
 AVDeviceInfoList *infoList;
 AppState *app_state;
+static bool mute = true;
+Camera *cameras = NULL;
+Webcam *webcam = NULL;
 
 int main(int argc, char **argv)
 {
@@ -33,8 +36,6 @@ int main(int argc, char **argv)
    bool sdlInitialized = false;
    bool show_demo_window = true;
 
-   Camera *cameras = NULL;
-   Webcam *webcam = NULL;
    int nb_of_cams = 0;
 
    app_state = (AppState *)calloc(1, sizeof(AppState));
@@ -142,8 +143,6 @@ int main(int argc, char **argv)
          break;
       }
 
-      ImGui::ShowDemoWindow(&show_demo_window);
-
       ImGui::Render();
 
       if (SDL_iterate(app_state) != SDL_APP_CONTINUE)
@@ -246,12 +245,15 @@ void createGUI()
          }
          ImGui::EndMenu();
       }
+      if(ImGui::Checkbox("Mute", &mute))
+      {
+         webcam->muteAudioPlayback(mute);
+      }
       ImGui::EndMainMenuBar();
    }
 
 
    ImGui::Begin("Window A");
-   ImGui::Text("Test");
 
    ImVec2 pos = ImGui::GetWindowPos();
    ImVec2 size = ImGui::GetWindowSize();

@@ -640,6 +640,13 @@ int Webcam::processVideoFrame(SDL_Texture *texture)
     av_packet_unref(video.packet);
     return 0;
 }
+int Webcam::muteAudioPlayback(bool mute)
+{
+    this->mute.store(mute);
+    return 0;
+}
+
+
 
 int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
 {
@@ -736,7 +743,7 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
             return -1;
         }
 
-        if (!SDL_PutAudioStreamData(audioStream, audio.out_buf, data_size))
+        if (!mute.load() && !SDL_PutAudioStreamData(audioStream, audio.out_buf, data_size))
         {
             spdlog::warn("Failed to queue audio to SDL stream: {}", SDL_GetError());
         }
