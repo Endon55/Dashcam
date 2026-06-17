@@ -77,7 +77,7 @@ public:
     Webcam(Camera *camera);
     int init();
     int close();
-    int processVideoFrame(SDL_Texture *texture, SDL_Rect *rect);
+    int processVideoFrame(SDL_Texture *texture);
     int processAudioFrame(SDL_AudioStream *audioStream);
     int startAudioCapture(SDL_AudioStream *audioStream);
     int stopAudioCapture();

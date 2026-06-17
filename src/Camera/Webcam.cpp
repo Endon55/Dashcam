@@ -113,32 +113,7 @@ int Webcam::initVideo()
         spdlog::critical("Error opening av format: {}", av_err2str(ret));
         return ret;
     }
-    /*
-    spdlog::info("Listing Devices");
-    AVDeviceInfoList *devicesInfo = NULL;
-    int deviceCount = avdevice_list_devices(video.fmtContext, &devicesInfo);
-    spdlog::debug("Device count: {}", deviceCount);
-    if (deviceCount > 0 && devicesInfo != NULL)
-    {
-        // Linux will use multiple /dev/videoX slots to convey all the relevant information about a stream
-        // Both webcams I have for testing have the raw stream data in video0 but have metadata in video1
-        for (int i = 0; i < devicesInfo->nb_devices; i++)
-        {
-            AVDeviceInfo *info = devicesInfo->devices[i];
 
-            spdlog::debug("Device Name: {}, Device Description: {}, Media Type: {}", info->device_name, info->device_description, (long)info->media_types);
-        }
-    }
-    else if (deviceCount < 0)
-    {
-        spdlog::warn("Unable to enumerate video devices: {}", av_err2str(deviceCount));
-    }
-
-    if (devicesInfo != NULL)
-    {
-        avdevice_free_list_devices(&devicesInfo);
-    }
-*/
     video.frame = av_frame_alloc();
     if (!video.frame)
     {
@@ -350,7 +325,7 @@ int Webcam::initVideo()
     video.yuv_frame->format = AV_PIX_FMT_YUV420P;
     video.yuv_frame->width = video.codecContext->width;
     video.yuv_frame->height = video.codecContext->height;
-    if (av_frame_get_buffer(video.yuv_frame, 32) < 0)
+    if (av_frame_get_buffer(video.yuv_frame, 0) < 0)
     {
         spdlog::critical("failed to allocate YUV frame buffer");
         return -1;
@@ -502,7 +477,7 @@ int Webcam::initAudio()
     return 0;
 }
 
-int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
+int Webcam::processVideoFrame(SDL_Texture *texture)
 {
     // Keep each submitted frame aligned with the source filter's negotiated properties.
     const AVColorRange targetColorRange =
@@ -550,13 +525,25 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
         return -1;
     }
 
+    float textureWidth = 0.0f;
+    float textureHeight = 0.0f;
+    if (!SDL_GetTextureSize(texture, &textureWidth, &textureHeight))
+    {
+        spdlog::critical("Failed to query texture size: {}", SDL_GetError());
+        av_packet_unref(video.packet);
+        return -1;
+    }
+
+    int targetWidth = static_cast<int>(textureWidth);
+    int targetHeight = static_cast<int>(textureHeight);
+
     AVFrame *display_frame = video.frame;
     if (display_frame->format != AV_PIX_FMT_YUV420P)
     {
         const AVPixelFormat inputPixelFormat =
             canonicalizePixelFormat(static_cast<AVPixelFormat>(display_frame->format));
 
-        video.sws_ctx = sws_getCachedContext(video.sws_ctx,
+        /* video.sws_ctx = sws_getCachedContext(video.sws_ctx,
                                              display_frame->width,
                                              display_frame->height,
                                              inputPixelFormat,
@@ -566,28 +553,26 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
                                              SWS_BILINEAR,
                                              NULL,
                                              NULL,
+                                             NULL); */
+
+        video.sws_ctx = sws_getCachedContext(video.sws_ctx,
+                                             display_frame->width,
+                                             display_frame->height,
+                                             inputPixelFormat,
+                                             targetWidth,
+                                             targetHeight,
+                                             AV_PIX_FMT_YUV420P,
+                                             SWS_BILINEAR,
+                                             NULL,
+                                             NULL,
                                              NULL);
+
         if (!video.sws_ctx)
         {
             spdlog::critical("failed to create sws context for input frame format {}", display_frame->format);
             av_packet_unref(video.packet);
             return -1;
         }
-
-        /* const int srcRange = sourceColorRangeForFrame(display_frame);
-        const int dstRange = 0;
-        ret = sws_setColorspaceDetails(video.sws_ctx,
-                                       sws_getCoefficients(SWS_CS_DEFAULT),
-                                       srcRange,
-                                       sws_getCoefficients(SWS_CS_DEFAULT),
-                                       dstRange,
-                                       0,
-                                       1 << 16,
-                                       1 << 16);
-        if (ret < 0)
-        {
-            spdlog::warn("failed to set sws colorspace details: {}", av_err2str(ret));
-        } */
 
         if (av_frame_make_writable(video.yuv_frame) < 0)
         {
@@ -648,11 +633,10 @@ int Webcam::processVideoFrame(SDL_Texture *texture, SDL_Rect *rect)
 
     muxor->write_video_frame(filtered_frame, AVRational{1, 1000000});
 
-    SDL_UpdateYUVTexture(texture, rect,
+    SDL_UpdateYUVTexture(texture, NULL,
                          filtered_frame->data[0], filtered_frame->linesize[0],
                          filtered_frame->data[1], filtered_frame->linesize[1],
                          filtered_frame->data[2], filtered_frame->linesize[2]);
-
     av_packet_unref(video.packet);
     return 0;
 }

@@ -14,7 +14,7 @@ Settings.h
 Settings.cpp)
 
 add_library(source ${sources})
-target_link_libraries(source PRIVATE libjpeg-turbo::turbojpeg-static SDL3::SDL3)
+target_link_libraries(source PRIVATE libjpeg-turbo::turbojpeg-static SDL3::SDL3 imgui::imgui)
 target_link_libraries(Dashcam PRIVATE 
 fmt::fmt 
 spdlog::spdlog
@@ -22,6 +22,7 @@ SDL3::SDL3
 SDL3_image::SDL3_image 
 libjpeg-turbo::turbojpeg-static 
 PkgConfig::FFMPEG
+imgui::imgui
 camera 
 source
 asound

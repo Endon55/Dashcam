@@ -20,9 +20,9 @@
 #include "Settings.h"
 
 int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext);
+void createGUI();
 AVDeviceInfoList *infoList;
 AppState *app_state;
-SDL_Rect *rect;
 
 int main(int argc, char **argv)
 {
@@ -31,21 +31,18 @@ int main(int argc, char **argv)
    int exitCode = 0;
    unsigned int count = 1000;
    bool sdlInitialized = false;
+   bool show_demo_window = true;
 
    Camera *cameras = NULL;
    Webcam *webcam = NULL;
    int nb_of_cams = 0;
 
    app_state = (AppState *)calloc(1, sizeof(AppState));
-   rect = (SDL_Rect *)calloc(1, sizeof(SDL_Rect));
-   if (app_state == NULL || rect == NULL)
+   if (app_state == NULL)
    {
       exitCode = -1;
       goto cleanup;
    }
-
-   rect->x = 0;
-   rect->y = 0;
 
    *app_state = (AppState){
        .width = 0,
@@ -86,8 +83,6 @@ int main(int argc, char **argv)
 
    app_state->width = webcam->video.codecContext->width;
    app_state->height = webcam->video.codecContext->height;
-   rect->w = app_state->width;
-   rect->h = app_state->height;
 
    app_state->audio_spec = (SDL_AudioSpec *)malloc(sizeof(SDL_AudioSpec));
    if (app_state->audio_spec == NULL)
@@ -115,7 +110,7 @@ int main(int argc, char **argv)
       exitCode = ret;
       goto cleanup;
    }
-
+   /* ****************************Main Loop**************************** */
    spdlog::debug("Starting app core loop");
    while (count-- > 0)
    {
@@ -130,8 +125,13 @@ int main(int argc, char **argv)
             goto cleanup;
          }
       }
+      ImGui_ImplSDLRenderer3_NewFrame();
+      ImGui_ImplSDL3_NewFrame();
+      ImGui::NewFrame();
 
-      ret = webcam->processVideoFrame(app_state->texture, rect);
+      createGUI();
+
+      ret = webcam->processVideoFrame(app_state->texture);
       if (ret < 0)
       {
          exitCode = ret;
@@ -142,11 +142,17 @@ int main(int argc, char **argv)
          break;
       }
 
+      ImGui::ShowDemoWindow(&show_demo_window);
+
+      ImGui::Render();
+
       if (SDL_iterate(app_state) != SDL_APP_CONTINUE)
       {
          break;
       }
    }
+   spdlog::info("Frame Count concluded, ending loop");
+   /* **************************End Main Loop************************** */
 
    if (ret < 0)
    {
@@ -175,12 +181,6 @@ cleanup:
          free(app_state);
       }
       app_state = NULL;
-   }
-
-   if (rect != NULL)
-   {
-      free(rect);
-      rect = NULL;
    }
 
    if (cameras != NULL)
@@ -226,4 +226,61 @@ int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext)
    spec->format = SDL_AUDIO_S16LE;
 
    return 1;
+}
+
+void createGUI()
+{
+
+   if(ImGui::BeginMainMenuBar())
+   {
+      if(ImGui::BeginMenu("File"))
+      {
+         if(ImGui::MenuItem("Test"))
+         {
+         }
+         if (ImGui::MenuItem("Test1"))
+         {
+         }
+         if (ImGui::MenuItem("Test2"))
+         {
+         }
+         ImGui::EndMenu();
+      }
+      ImGui::EndMainMenuBar();
+   }
+
+
+   ImGui::Begin("Window A");
+   ImGui::Text("Test");
+
+   ImVec2 pos = ImGui::GetWindowPos();
+   ImVec2 size = ImGui::GetWindowSize();
+
+   ImGui::Text("window pos %.1f %.1f", pos.x, pos.y);
+   ImGui::Text("window size %.1f %.1f", size.x, size.y);
+
+   ImVec2 avail = ImGui::GetContentRegionAvail();
+   if (avail.x > 1.0f && avail.y > 1.0f && app_state != NULL && app_state->texture != NULL)
+   {
+      float videoAspect = static_cast<float>(app_state->width) / static_cast<float>(app_state->height);
+      float availAspect = avail.x / avail.y;
+
+      ImVec2 imageSize = avail;
+      if (availAspect > videoAspect)
+      {
+         imageSize.x = avail.y * videoAspect;
+      }
+      else
+      {
+         imageSize.y = avail.x / videoAspect;
+      }
+
+      float xOffset = (avail.x - imageSize.x) * 0.5f;
+      float yOffset = (avail.y - imageSize.y) * 0.5f;
+      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xOffset);
+      ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yOffset);
+      ImGui::Image((ImTextureID)app_state->texture, imageSize);
+   }
+
+   ImGui::End();
 }
