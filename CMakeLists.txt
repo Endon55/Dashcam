@@ -19,6 +19,7 @@ find_package(libjpeg-turbo CONFIG REQUIRED)
 find_package(FFMPEG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(tomlplusplus REQUIRED)
 
 # FFmpeg uses pkg-config
 find_package(PkgConfig REQUIRED)

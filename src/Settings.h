@@ -1,7 +1,18 @@
+#pragma once
 
+#include <filesystem>
 
-struct Settings
+struct settings
 {
-    Capture_Priority cap_priority;
+    bool mute = false;
+    
 };
 
+namespace Settings
+{
+    int load();
+    int save();
+    bool isMuted();
+    void setMute(bool mute);
+    std::filesystem::path getSettingsFilePath();
+}

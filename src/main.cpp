@@ -30,6 +30,10 @@ Webcam *webcam = NULL;
 int main(int argc, char **argv)
 {
    spdlog::set_level(spdlog::level::debug);
+   Settings::load();
+   
+   mute = Settings::isMuted();
+
    int ret = 0;
    int exitCode = 0;
    unsigned int count = 1000;
@@ -248,6 +252,7 @@ void createGUI()
       if(ImGui::Checkbox("Mute", &mute))
       {
          webcam->muteAudioPlayback(mute);
+         Settings::setMute(mute);
       }
       ImGui::EndMainMenuBar();
    }

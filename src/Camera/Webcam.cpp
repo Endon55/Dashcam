@@ -1,4 +1,5 @@
 #include "Webcam.h"
+#include "../Settings.h"
 
 #include <chrono>
 #include <cmath>
@@ -11,6 +12,7 @@
 Webcam::Webcam(Camera *camera) : has_audio(camera->audio_hw != NULL)
 {
     this->camera = camera;
+    this->mute.store(Settings::isMuted());
 }
 
 int Webcam::init()
