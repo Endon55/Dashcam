@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include <inttypes.h>
 #include <iostream>
 #include "Window.h"
@@ -24,6 +25,7 @@ void createGUI();
 AVDeviceInfoList *infoList;
 AppState *app_state;
 static bool mute = true;
+static char save_dir[64];
 Camera *cameras = NULL;
 Webcam *webcam = NULL;
 
@@ -31,8 +33,10 @@ int main(int argc, char **argv)
 {
    spdlog::set_level(spdlog::level::debug);
    Settings::load();
-   
+
    mute = Settings::isMuted();
+
+   Settings::getSaveDir().copy(save_dir, sizeof(save_dir));
 
    int ret = 0;
    int exitCode = 0;
@@ -163,6 +167,7 @@ int main(int argc, char **argv)
    }
 
 cleanup:
+   Settings::save();
    if (webcam != NULL)
    {
       webcam->close();
@@ -231,34 +236,39 @@ int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext)
    return 1;
 }
 
+static bool settings_open = false;
 void createGUI()
 {
-
-   if(ImGui::BeginMainMenuBar())
+   if (ImGui::BeginMainMenuBar())
    {
-      if(ImGui::BeginMenu("File"))
+      if (ImGui::BeginMenu("File"))
       {
-         if(ImGui::MenuItem("Test"))
+         if (ImGui::MenuItem("Settings"))
          {
-         }
-         if (ImGui::MenuItem("Test1"))
-         {
-         }
-         if (ImGui::MenuItem("Test2"))
-         {
+            settings_open = true;
          }
          ImGui::EndMenu();
       }
-      if(ImGui::Checkbox("Mute", &mute))
+      if (ImGui::Checkbox("Mute", &mute))
       {
          webcam->muteAudioPlayback(mute);
          Settings::setMute(mute);
       }
       ImGui::EndMainMenuBar();
    }
+   if (settings_open)
+   {
+      ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_FirstUseEver);
+      ImGui::Begin("Settings", &settings_open, 0);
+      ImGui::Text("Save Directory");
+      if(ImGui::InputText("##Save Directory", save_dir, sizeof(save_dir)))
+      {
+         Settings::setSaveDir(std::string(save_dir));
+      }
 
-
-   ImGui::Begin("Window A");
+      ImGui::End();
+   }
+   ImGui::Begin("Camera 1");
 
    ImVec2 pos = ImGui::GetWindowPos();
    ImVec2 size = ImGui::GetWindowSize();

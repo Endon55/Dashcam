@@ -19,6 +19,7 @@ namespace
     int loadFromToml(toml::table toml)
     {
         state.mute = toml["mute"].value_or(false);
+        state.save_dir = toml["save_dir"].value_or(Utils::getHomeDir() + "/Desktop/Dashcam");
 
         toml::node_view flute_view = toml["flute"];
 
@@ -34,7 +35,7 @@ std::filesystem::path Settings::getSettingsFilePath()
 int Settings::load()
 {
     int ret = 0;
-    state.mute = false;
+
     std::string homedir = Utils::getHomeDir();
 
     std::filesystem::path path = Utils::getConfigDirPath();
@@ -86,13 +87,12 @@ int Settings::load()
     return loadFromToml(configToml);
 }
 
-
-
 int Settings::save()
 {
     toml::table table;
 
     table.insert_or_assign("mute", state.mute);
+    table.insert_or_assign("save_dir", state.save_dir);
 
     std::cout << table << std::endl;
 
@@ -111,5 +111,15 @@ bool Settings::isMuted()
 void Settings::setMute(bool mute)
 {
     state.mute = mute;
+    save();
+}
+
+std::string Settings::getSaveDir()
+{
+    return state.save_dir;
+}
+void Settings::setSaveDir(std::string saveDir)
+{
+    state.save_dir = saveDir;
     save();
 }
