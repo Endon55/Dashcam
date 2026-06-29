@@ -1,3 +1,13 @@
 -Rework the capture_priority in webcamutils to be a more robust system.
 --Probably combine the probe best mode and find all webcams step to avoid redundant system calls.
 
+
+-cache resolutions and fps and format
+[mjpeg]
+    [60]
+        1920x1080
+    [30]
+        4k x 2k
+
+then create a settings window that will show all the options and allow the user to select an option.
+Then reload the cameras with the new settings.

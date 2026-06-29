@@ -1,7 +1,13 @@
 #pragma once
 
 #include <filesystem>
-#include <string>
+#include <fstream>
+#include <string.h>
+#include <map>
+#include <toml++/toml.hpp>
+#include <iostream>
+#include <spdlog/spdlog.h>
+#include "FileIO.h"
 
 struct settings
 {

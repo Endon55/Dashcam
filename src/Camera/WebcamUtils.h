@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <libudev.h>
 
 extern "C"
 {
@@ -14,26 +15,22 @@ extern "C"
 }
 
 #include <spdlog/spdlog.h>
+#include "../Utils.h"
+#include "../Config.h"
 
 const char dev[] = "/dev/videoX";
 const int dev_len = 11;
 const int max_cams = 10;
+const int MAX_CAP_MODES = 100;
 
-enum Capture_Priority
-{
-    RESOLUTION = 1,
-    FPS = 2,
-    BALANCED = 3,
-};
-
-struct CaptureMode
+struct capture_mode
 {
     int width = 0;
     int height = 0;
-    uint32_t pixelFormat = 0;
-    const char *input_fmt = nullptr;
+    unsigned int pixelFormat = 0;
     double fps = 0.0;
 };
+
 
 struct Camera
 {
@@ -42,8 +39,29 @@ struct Camera
     const char *audio_hw;
     int video_index;
     int nb_of_video_entries;
-    struct CaptureMode *capture_mode;
+    struct capture_mode *capture_mode;
 };
+
+struct cam_device
+{
+    const char *usbPath;
+    const char *videoPath;
+    const char *audioPath;
+    const int  *audioCard;
+    const int  *audioDevice;
+    const char *manufacturer;
+    const char *product;
+    const char *vendorID;
+    const char *productID;
+    const char *serialNumber;
+
+    const capture_mode *cap_modes;
+    const int          *nb_cap_modes;
+};
+
+static const char *soundValidation = "/dev/snd/pcm";
+
+
 
 int xioctl(int fd, int request, void *arg);
 
@@ -63,8 +81,8 @@ const char *fourcc_to_str(uint32_t pixelFormat);
 
 double get_highest_fps(int fd, uint32_t pixelFormat, int width, int height);
 
-int capture_mode_score(int width, int height, uint32_t pixelFormat, double fps, Capture_Priority priority);
+int capture_mode_score(int width, int height, uint32_t pixelFormat, double fps);
 
-CaptureMode probeBestCaptureMode(const char *devicePath);
+capture_mode probeBestCaptureMode(const char *devicePath);
 
-int findBestCaptureMode(Capture_Priority priority, Camera *camera);
+int findBestCaptureMode(Camera *camera);

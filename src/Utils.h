@@ -1,17 +1,8 @@
 #pragma once
 
-#include <string>
-#include <filesystem>
+#include <spdlog/spdlog.h>
 
 namespace Utils
 {
-    std::string getHomeDir()
-    {
-        return getenv("HOME");
-    }
-
-    std::filesystem::path getConfigDirPath()
-    {
-        return std::filesystem::path(getHomeDir()) / ".config" / "dashcam";
-    }
+    bool str_starts_with(const char *base_string, const char *condition_string);
 }

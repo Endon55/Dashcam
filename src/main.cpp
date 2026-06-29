@@ -1,13 +1,14 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <string.h>
 #include <string>
+#include <string_view>
 #include <inttypes.h>
 #include <iostream>
-#include "Window.h"
+#include <vector>
 
 #include <linux/videodev2.h>
+#include <libudev.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -18,162 +19,227 @@
 #include "Camera/Webcam.h"
 #include "Camera/Muxor.h"
 #include "Camera/WebcamUtils.h"
+#include "Window.h"
 #include "Settings.h"
+#include "Utils.h"
+#include "Config.h"
+
+
 
 int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext);
+void getCardAndDevice(const char *pcm_string, int *card, int *device);
 void createGUI();
+int getUsbIndex(const char *usbPath, cam_device *devices);
+
 AVDeviceInfoList *infoList;
 AppState *app_state;
 static bool mute = true;
 static char save_dir[64];
 Camera *cameras = NULL;
-Webcam *webcam = NULL;
+std::vector<Webcam *> webcams;
+
 
 int main(int argc, char **argv)
 {
+
    spdlog::set_level(spdlog::level::debug);
-   Settings::load();
+   Config::load_cam_config();
 
-   mute = Settings::isMuted();
 
-   Settings::getSaveDir().copy(save_dir, sizeof(save_dir));
+   
+      mute = Settings::isMuted();
 
-   int ret = 0;
-   int exitCode = 0;
-   unsigned int count = 1000;
-   bool sdlInitialized = false;
-   bool show_demo_window = true;
+      Settings::getSaveDir().copy(save_dir, sizeof(save_dir));
 
-   int nb_of_cams = 0;
+      int ret = 0;
+      int exitCode = 0;
+      unsigned int count = 1000;
+      bool sdlInitialized = false;
+      bool show_demo_window = true;
 
-   app_state = (AppState *)calloc(1, sizeof(AppState));
-   if (app_state == NULL)
-   {
-      exitCode = -1;
-      goto cleanup;
-   }
+      int nb_of_cams = 0;
 
-   *app_state = (AppState){
-       .width = 0,
-       .height = 0};
-
-   ret = query_all_webcams(&cameras, &nb_of_cams);
-   if (ret < 0)
-   {
-      spdlog::critical("Failed to query for all webcams");
-      exitCode = -1;
-      goto cleanup;
-   }
-
-   if (nb_of_cams <= 0)
-   {
-      spdlog::critical("No webcams were detected");
-      exitCode = -1;
-      goto cleanup;
-   }
-
-   ret = findBestCaptureMode(RESOLUTION, &cameras[0]);
-   if (ret < 0)
-   {
-      spdlog::critical("Failed to find best capture mode for webcam 0");
-      exitCode = -1;
-      goto cleanup;
-   }
-
-   // return 0;
-
-   webcam = new Webcam(&cameras[0]);
-   ret = webcam->init();
-   if (ret < 0)
-   {
-      exitCode = ret;
-      goto cleanup;
-   }
-
-   app_state->width = webcam->video.codecContext->width;
-   app_state->height = webcam->video.codecContext->height;
-
-   app_state->audio_spec = (SDL_AudioSpec *)malloc(sizeof(SDL_AudioSpec));
-   if (app_state->audio_spec == NULL)
-   {
-      exitCode = -1;
-      goto cleanup;
-   }
-   ret = sdl_load_audio_spec(app_state->audio_spec, webcam->audio.codecContext);
-   if (ret < 0)
-   {
-      exitCode = ret;
-      goto cleanup;
-   }
-
-   if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
-   {
-      exitCode = -1;
-      goto cleanup;
-   }
-   sdlInitialized = true;
-
-   ret = webcam->startAudioCapture(app_state->audio_stream);
-   if (ret < 0)
-   {
-      exitCode = ret;
-      goto cleanup;
-   }
-   /* ****************************Main Loop**************************** */
-   spdlog::debug("Starting app core loop");
-   while (count-- > 0)
-   {
-      SDL_Event ev;
-      while (SDL_PollEvent(&ev))
+      app_state = (AppState *)calloc(1, sizeof(AppState));
+      if (app_state == NULL)
       {
-         // spdlog::debug("Processing SDL Events");
-         if (SDL_event(app_state, &ev) != SDL_APP_CONTINUE)
+         exitCode = -1;
+         goto cleanup;
+      }
+
+      *app_state = (AppState){
+          .width = 0,
+          .height = 0};
+
+      ret = query_all_webcams(&cameras, &nb_of_cams);
+      if (ret < 0)
+      {
+         spdlog::critical("Failed to query for all webcams");
+         exitCode = -1;
+         goto cleanup;
+      }
+
+      if (nb_of_cams <= 0)
+      {
+         spdlog::critical("No webcams were detected");
+         exitCode = -1;
+         goto cleanup;
+      }
+      webcams.reserve(nb_of_cams);
+
+      // return 0;
+      for (int i = 0; i < nb_of_cams; i++)
+      {
+         ret = findBestCaptureMode(&cameras[i]);
+         if (ret < 0)
          {
-            spdlog::info("App closed by ESC key press");
-            exitCode = 0;
+            spdlog::critical("Failed to find best capture mode for webcam %i", i);
+            exitCode = -1;
+            goto cleanup;
+         }
+         webcams.push_back(new Webcam(&cameras[i]));
+         ret = webcams[i]->init();
+         if (ret < 0)
+         {
+            exitCode = ret;
             goto cleanup;
          }
       }
-      ImGui_ImplSDLRenderer3_NewFrame();
-      ImGui_ImplSDL3_NewFrame();
-      ImGui::NewFrame();
 
-      createGUI();
+      app_state->width = webcams[0]->video.codecContext->width;
+      app_state->height = webcams[0]->video.codecContext->height;
 
-      ret = webcam->processVideoFrame(app_state->texture);
+      app_state->audio_spec = (SDL_AudioSpec *)malloc(sizeof(SDL_AudioSpec));
+      if (app_state->audio_spec == NULL)
+      {
+         exitCode = -1;
+         goto cleanup;
+      }
+      ret = sdl_load_audio_spec(app_state->audio_spec, webcams[0]->audio.codecContext);
       if (ret < 0)
       {
          exitCode = ret;
          goto cleanup;
       }
-      if (ret > 0)
+
+      if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
       {
-         break;
+         exitCode = -1;
+         goto cleanup;
+      }
+      sdlInitialized = true;
+
+      for (int i = 0; i < nb_of_cams; i++)
+      {
+         ret = webcams[i]->startAudioCapture(app_state->audio_stream);
+         if (ret < 0)
+         {
+            exitCode = ret;
+            goto cleanup;
+         }
       }
 
-      ImGui::Render();
-
-      if (SDL_iterate(app_state) != SDL_APP_CONTINUE)
+      /* ****************************Main Loop**************************** */
+      spdlog::debug("Starting app core loop");
+      while (count-- > 0)
       {
-         break;
-      }
-   }
-   spdlog::info("Frame Count concluded, ending loop");
-   /* **************************End Main Loop************************** */
+         SDL_Event ev;
+         while (SDL_PollEvent(&ev))
+         {
+            // spdlog::debug("Processing SDL Events");
+            if (SDL_event(app_state, &ev) != SDL_APP_CONTINUE)
+            {
+               spdlog::info("App closed by ESC key press");
+               exitCode = 0;
+               goto cleanup;
+            }
+         }
+         ImGui_ImplSDLRenderer3_NewFrame();
+         ImGui_ImplSDL3_NewFrame();
+         ImGui::NewFrame();
 
-   if (ret < 0)
-   {
-      exitCode = ret;
-   }
+         createGUI();
+         for (int i = 0; i < nb_of_cams; i++)
+         {
+            ret = webcams[i]->processVideoFrame(app_state->texture);
+            if (ret < 0)
+            {
+               exitCode = ret;
+               goto cleanup;
+            }
+            if (ret > 0)
+            {
+               break;
+            }
+         }
+         ImGui::Render();
+
+         if (SDL_iterate(app_state) != SDL_APP_CONTINUE)
+         {
+            break;
+         }
+      }
+      spdlog::info("Frame Count concluded, ending loop");
+      /* **************************End Main Loop************************** */
+
+      if (ret < 0)
+      {
+         exitCode = ret;
+      }
 
 cleanup:
    Settings::save();
-   if (webcam != NULL)
-   {
-      webcam->close();
-      delete webcam;
-   }
 
+   /* for (int i = 0; i < max_cams; i++)
+   {
+      if(usb_cameras[i].usbPath != NULL)
+      {
+         free((void *)usb_cameras[i].usbPath);
+      }
+      if (usb_cameras[i].videoPath != NULL)
+      {
+         free((void *)usb_cameras[i].videoPath);
+      }
+      if (usb_cameras[i].audioPath != NULL)
+      {
+         free((void *)usb_cameras[i].audioPath);
+      }
+      if (usb_cameras[i].audioCard != NULL)
+      {
+         free((void *)usb_cameras[i].audioCard);
+      }
+      if (usb_cameras[i].audioDevice != NULL)
+      {
+         free((void *)usb_cameras[i].audioDevice);
+      }
+      if (usb_cameras[i].manufacturer != NULL)
+      {
+         free((void *)usb_cameras[i].manufacturer);
+      }
+      if (usb_cameras[i].product != NULL)
+      {
+         free((void *)usb_cameras[i].product);
+      }
+      if (usb_cameras[i].vendorID != NULL)
+      {
+         free((void *)usb_cameras[i].vendorID);
+      }
+      if (usb_cameras[i].productID != NULL)
+      {
+         free((void *)usb_cameras[i].productID);
+      }
+      if (usb_cameras[i].serialNumber != NULL)
+      {
+         free((void *)usb_cameras[i].serialNumber);
+      }
+   } */
+   for (int i = 0; i < nb_of_cams; i++)
+   {
+      if (webcams[i] != NULL)
+      {
+         webcams[i]->close();
+      }
+      
+   }
    if (app_state != NULL)
    {
       if (sdlInitialized)
@@ -251,7 +317,7 @@ void createGUI()
       }
       if (ImGui::Checkbox("Mute", &mute))
       {
-         webcam->muteAudioPlayback(mute);
+         webcams[0]->muteAudioPlayback(mute);
          Settings::setMute(mute);
       }
       ImGui::EndMainMenuBar();
@@ -261,43 +327,103 @@ void createGUI()
       ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_FirstUseEver);
       ImGui::Begin("Settings", &settings_open, 0);
       ImGui::Text("Save Directory");
-      if(ImGui::InputText("##Save Directory", save_dir, sizeof(save_dir)))
+      if (ImGui::InputText("##Save Directory", save_dir, sizeof(save_dir)))
       {
          Settings::setSaveDir(std::string(save_dir));
       }
 
       ImGui::End();
    }
-   ImGui::Begin("Camera 1");
-
-   ImVec2 pos = ImGui::GetWindowPos();
-   ImVec2 size = ImGui::GetWindowSize();
-
-   ImGui::Text("window pos %.1f %.1f", pos.x, pos.y);
-   ImGui::Text("window size %.1f %.1f", size.x, size.y);
-
-   ImVec2 avail = ImGui::GetContentRegionAvail();
-   if (avail.x > 1.0f && avail.y > 1.0f && app_state != NULL && app_state->texture != NULL)
+   for (int i = 0; i < webcams.size(); i++)
    {
-      float videoAspect = static_cast<float>(app_state->width) / static_cast<float>(app_state->height);
-      float availAspect = avail.x / avail.y;
+      ImGui::Begin("Camera " + i);
 
-      ImVec2 imageSize = avail;
-      if (availAspect > videoAspect)
+      ImVec2 pos = ImGui::GetWindowPos();
+      ImVec2 size = ImGui::GetWindowSize();
+
+      ImGui::Text("window pos %.1f %.1f", pos.x, pos.y);
+      ImGui::Text("window size %.1f %.1f", size.x, size.y);
+
+      ImVec2 avail = ImGui::GetContentRegionAvail();
+      if (avail.x > 1.0f && avail.y > 1.0f && app_state != NULL && app_state->texture != NULL)
       {
-         imageSize.x = avail.y * videoAspect;
-      }
-      else
-      {
-         imageSize.y = avail.x / videoAspect;
+         float videoAspect = static_cast<float>(app_state->width) / static_cast<float>(app_state->height);
+         float availAspect = avail.x / avail.y;
+
+         ImVec2 imageSize = avail;
+         if (availAspect > videoAspect)
+         {
+            imageSize.x = avail.y * videoAspect;
+         }
+         else
+         {
+            imageSize.y = avail.x / videoAspect;
+         }
+
+         float xOffset = (avail.x - imageSize.x) * 0.5f;
+         float yOffset = (avail.y - imageSize.y) * 0.5f;
+         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xOffset);
+         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yOffset);
+         ImGui::Image((ImTextureID)app_state->texture, imageSize);
       }
 
-      float xOffset = (avail.x - imageSize.x) * 0.5f;
-      float yOffset = (avail.y - imageSize.y) * 0.5f;
-      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xOffset);
-      ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yOffset);
-      ImGui::Image((ImTextureID)app_state->texture, imageSize);
+      ImGui::End();
    }
+}
 
-   ImGui::End();
+void getCardAndDevice(const char *pcm_string, int *card, int *device)
+{
+   const char* pcm = pcm_string;
+   //only supporting a max of 3 digit numbers
+   char *tmp_str = (char *)malloc(3 * sizeof(char));
+   tmp_str[0] = '\0';
+   char *tmp = tmp_str;
+   int num_len = 0;
+   while(true)
+   {
+      if(std::isdigit(*pcm))
+      {
+         *tmp = *pcm;
+         *pcm++;
+         *tmp++;
+      }
+      else if (*pcm == 'C')
+      {
+         *pcm++;
+
+
+
+         continue;
+      }
+      else if (*pcm == 'D')
+      {
+         spdlog::critical("Temp String: {}", tmp_str);
+         *card = std::atoi(tmp_str);
+         *tmp = *tmp_str;
+         tmp_str[0] = 0;
+         tmp_str[1] = 0;
+         tmp_str[2] = 0;
+         *pcm++;
+         continue;
+      }
+      else if (*pcm == 'c')
+      {
+         spdlog::critical("Temp String: {}", tmp_str);
+         *device = std::atoi(tmp_str);
+         break;
+      }
+      else if (*pcm == '\0')
+      {
+         break;
+      }
+   }
+   free(tmp_str);
+}
+
+
+int getUsbIndex(const char *usbPath, cam_device *devices)
+{
+
+
+   return -1;
 }

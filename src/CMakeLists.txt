@@ -12,10 +12,18 @@ Window.h
 Window.cpp
 Settings.h
 Settings.cpp
-Utils.h)
+Config.h
+Config.cpp
+FileIO.h
+FileIO.cpp
+Utils.cpp)
 
 add_library(source ${sources})
 target_link_libraries(source PRIVATE libjpeg-turbo::turbojpeg-static SDL3::SDL3 imgui::imgui)
+target_link_libraries(source PUBLIC udev)
+
+target_link_libraries(Dashcam PUBLIC udev)
+
 target_link_libraries(Dashcam PRIVATE 
 fmt::fmt 
 spdlog::spdlog

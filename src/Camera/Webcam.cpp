@@ -1,5 +1,6 @@
 #include "Webcam.h"
 #include "../Settings.h"
+#include "WebcamUtils.h"
 
 #include <chrono>
 #include <cmath>
@@ -78,7 +79,7 @@ int Webcam::initVideo()
 
     AVDictionary *videoInputOptions = NULL;
 
-    ret = findBestCaptureMode(RESOLUTION, camera);
+    ret = findBestCaptureMode(camera);
     if (ret < 0 || camera->capture_mode == NULL ||
         camera->capture_mode->width == 0 ||
         camera->capture_mode->height == 0)
@@ -97,14 +98,13 @@ int Webcam::initVideo()
         snprintf(frameRate, sizeof(frameRate), "%d", stableFps);
         av_dict_set(&videoInputOptions, "framerate", frameRate, 0);
     }
-    if (camera->capture_mode->input_fmt != nullptr)
-    {
-        av_dict_set(&videoInputOptions, "input_format", camera->capture_mode->input_fmt, 0);
-    }
+
+    av_dict_set(&videoInputOptions, "input_format", fourcc_to_str(camera->capture_mode->pixelFormat), 0);
+
     spdlog::info("Requesting webcam mode {} @ {:.2f} fps ({})",
                  videoSize,
                  camera->capture_mode->fps,
-                 camera->capture_mode->input_fmt != nullptr ? camera->capture_mode->input_fmt : "default");
+                 fourcc_to_str(camera->capture_mode->pixelFormat));
 
     spdlog::info("Opening Input");
     ret = avformat_open_input(&video.fmtContext, camera->device_name, inputFormat, &videoInputOptions);
