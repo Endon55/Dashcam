@@ -1,12 +1,30 @@
 #include "WebcamUtils.h"
 #include <sound/asound.h>
 
-int query_all_capture_modes(capture_mode **cap_modes, int *count, int fd)
+int query_all_capture_modes(capture_mode **cap_modes, int *count, cam_device usb_camera)
 {
+
+    int fd = open(usb_camera.videoPath, O_RDWR | O_NONBLOCK);
+    if (fd < 0)
+    {
+        return -1;
+    }
+    struct v4l2_capability *camcap = (v4l2_capability *)malloc(sizeof(v4l2_capability));
+    int ret = xioctl(fd, VIDIOC_QUERYCAP, camcap);
+    if (ret < 0)
+    {
+        spdlog::critical("Xioctl Failed: {}", strerror(errno));
+        free(camcap);
+        close(fd);
+        return -1;
+    }
+
     *count = 0;
     if (fd < 0 || cap_modes == nullptr || count == nullptr)
     {
         spdlog::critical("Invalid device handle provided");
+        free(camcap);
+        close(fd);
         return -1;
     }
 
@@ -14,6 +32,8 @@ int query_all_capture_modes(capture_mode **cap_modes, int *count, int fd)
     if (*cap_modes == nullptr)
     {
         spdlog::critical("Failed to allocate capture mode buffer");
+        free(camcap);
+        close(fd);
         return -1;
     }
 
@@ -62,8 +82,7 @@ int query_all_capture_modes(capture_mode **cap_modes, int *count, int fd)
                 (*cap_modes)[*count].fps = get_highest_fps(fd, fmtDesc.pixelformat, width, height);
                 (*cap_modes)[*count].width = width;
                 (*cap_modes)[*count].height = height;
-                (*cap_modes)[*count].pixelFormat = fmtDesc.pixelformat;
-
+                (*cap_modes)[*count].pixelFormat = fmtDesc.pixelformat;                                         
                 spdlog::debug("PixFmt: {}, Width: {}, Height: {}, FPS: {}", (*cap_modes)[*count].pixelFormat, (*cap_modes)[*count].width, (*cap_modes)[*count].height, (*cap_modes)[*count].fps);
 
                 (*count)++;
@@ -74,8 +93,12 @@ int query_all_capture_modes(capture_mode **cap_modes, int *count, int fd)
 
         fmtDesc.index++;
     }
+
+    free(camcap);
+    close(fd);
     return 0;
 }
+
 
 int findBestCaptureMode(Camera *camera)
 {
@@ -256,6 +279,7 @@ double get_highest_fps(int fd, uint32_t pixelFormat, int width, int height)
 
 capture_mode probeBestCaptureMode(const char *devicePath)
 {
+
     capture_mode bestMode;
     int64_t bestScore = -1;
 
@@ -363,10 +387,12 @@ cam_config *merge_cam_structs(int nb_of_cameras, cam_device *usb_cameras)
     return return_cam_configs;
 }
 
-int query_all_webcams(Camera **cameras, int *nb_of_cameras)
+int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
 {
 
-    cam_device usb_cameras[max_cams];
+    int ret = 0;
+    cam_device *usb_cameras = (cam_device *)malloc(sizeof(cam_device) * MAX_CAMS);
+    *cameras = usb_cameras;
     int nb_usb_cameras = 0;
 
     udev *udev;
@@ -480,22 +506,21 @@ int query_all_webcams(Camera **cameras, int *nb_of_cameras)
                 spdlog::critical("No dev/videoX location found, must not be valid???");
             }
 
-            cam_device device;
+            cam_device *device = (usb_cameras + nb_usb_cameras);
 
-            device.usbPath = usbPath;
-            device.videoPath = videoPath;
-            device.audioPath = audioPath;
+            device->usbPath = usbPath;
+            device->videoPath = videoPath;
+            device->audioPath = audioPath;
 
-            device.audioCard = card_num;
-            device.audioDevice = device_num;
+            device->audioCard = card_num;
+            device->audioDevice = device_num;
 
-            device.manufacturer = (manufacturer != NULL ? manufacturer : "[none]");
-            device.product = (product != NULL ? product : "[none]");
+            device->manufacturer = (manufacturer != NULL ? manufacturer : "[none]");
+            device->product = (product != NULL ? product : "[none]");
 
-            device.vendorID = (vendorID != NULL ? vendorID : "[none]");
-            device.productID = (productID != NULL ? productID : "[none]");
-            device.serialNumber = (serialNumber != NULL ? serialNumber : "[none]");
-            usb_cameras[nb_usb_cameras] = device;
+            device->vendorID = (vendorID != NULL ? vendorID : "[none]");
+            device->productID = (productID != NULL ? productID : "[none]");
+            device->serialNumber = (serialNumber != NULL ? serialNumber : "[none]");
             nb_usb_cameras++;
         }
 
@@ -519,48 +544,19 @@ int query_all_webcams(Camera **cameras, int *nb_of_cameras)
         spdlog::debug("   Serial Number: {}", cam.serialNumber);
     }
 
-
-    int ret = 0;
-    *cameras = new Camera[nb_usb_cameras]();
-    Camera *cams = *cameras;
-
-    int index = 0;
-
     for (int i = 0; i < nb_usb_cameras; i++)
     {
+        capture_mode *cap_modes = nullptr;
+        int *nb_of_cap_modes = new int(0);
 
-        int fd = open(usb_cameras[i].videoPath, O_RDWR | O_NONBLOCK);
-        if (fd < 0)
-        {
-            break;
-        }
-        struct v4l2_capability *camcap = (v4l2_capability *)malloc(sizeof(v4l2_capability));
-        int ret = xioctl(fd, VIDIOC_QUERYCAP, camcap);
+        ret = query_all_capture_modes(&cap_modes, nb_of_cap_modes, usb_cameras[i]);
         if (ret < 0)
         {
-            spdlog::critical("Xioctl Failed: {}", strerror(errno));
-            free(camcap);
-            close(fd);
-            return -1;
+            spdlog::critical("Failed to query the capture modes");
         }
-
-        if (true) // cache doesnt have all the resolution/pix_formats/fps
-        {
-            capture_mode *cap_modes = nullptr;
-            int *nb_of_cap_modes = new int(0);
-
-            ret = query_all_capture_modes(&cap_modes, nb_of_cap_modes, fd);
-            if (ret < 0)
-            {
-                spdlog::critical("Failed to query the capture modes");
-            }
-            usb_cameras[i].cap_modes = cap_modes;
-            usb_cameras[i].nb_cap_modes = nb_of_cap_modes;
-            spdlog::critical("Cap Modes: {}", *nb_of_cap_modes);
-        }
-
-        free(camcap);
-        close(fd);
+        usb_cameras[i].cap_modes = cap_modes;
+        usb_cameras[i].nb_cap_modes = nb_of_cap_modes;
+        spdlog::critical("Cap Modes: {}", *nb_of_cap_modes);
     }
 
     cam_config *configs = merge_cam_structs(nb_usb_cameras, usb_cameras);
@@ -571,68 +567,28 @@ int query_all_webcams(Camera **cameras, int *nb_of_cameras)
     return 0;
 }
 
-int check_for_usb_address_match(Camera *camera, int nb_of_cameras, unsigned char *device_description)
+//PlugHW is the alternate mode but I dont think I care about that.
+char *getAudioHW(int card, int device)
 {
-    for (int i = 0; i < nb_of_cameras; i++)
-    {
-        char *ch = strstr((char *)device_description, camera[i].bus_info);
-        if (ch != nullptr)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
+    //std::string cd = std::to_string(card);
+   //std::string dv = std::to_string(device);
+    //int len = cd.length() + dv.length();
 
-int pair_audio_index_with_camera(Camera *camera, int nb_of_cameras)
-{
-    int ret;
-    char control_path[32];
+    char *hw;
+    // "hw:" + cd + "," + dv + '\0' we allot 3 spaces for each number
+    hw = (char*)malloc(sizeof(char) * (5 + 6));
+    //index = hw;
+    //const char* tmp = "hw";
+    //std::strcpy((char *)tmp, index);
+    //index += 3;
+    //std::strcpy((char *)cd.c_str(), index);
+    //index += cd.length();
+    //hw[*index] = ',';
+    //index += 1;
+    //std::strcpy((char *)dv.c_str(), index);
 
-    // Iterate through potential sound cards (0 to 31 is the standard ALSA limit)
-    for (int card = 0; card < 32; card++)
-    {
+    snprintf(hw, sizeof(hw), "hw:%d,%d", card, device);
+    spdlog::critical("AudioHW: {}", hw);
 
-        snprintf(control_path, sizeof(control_path), "/dev/snd/controlC%d", card);
-        int fd = open(control_path, O_RDONLY);
-        if (fd < 0)
-            continue;
-
-        struct snd_ctl_card_info card_info;
-        ret = xioctl(fd, SNDRV_CTL_IOCTL_CARD_INFO, &card_info);
-        if (ret == 0)
-        {
-            printf("Card %d: %s [%s]\n", card, card_info.name, card_info.longname);
-
-            int cam_index = check_for_usb_address_match(camera, nb_of_cameras, card_info.longname);
-            if (cam_index < 0)
-            {
-                continue;
-            }
-
-            // Now we query the device to find out what it's "hw:x,x handle is"
-            int device = 0;
-            struct snd_pcm_info pcm_info = {0};
-            pcm_info.device = device;
-            pcm_info.stream = SNDRV_PCM_STREAM_CAPTURE;
-
-            ret = xioctl(fd, SNDRV_CTL_IOCTL_PCM_INFO, &pcm_info);
-            if (ret < 0)
-            {
-                spdlog::critical("Failed to read audio device info: {}", strerror(errno));
-                return -1;
-            }
-            if (camera[cam_index].audio_hw != NULL)
-            {
-                free((void *)camera[cam_index].audio_hw);
-                camera[cam_index].audio_hw = NULL;
-            }
-
-            char audio_hw[12];
-            snprintf(audio_hw, sizeof(audio_hw), "hw:%d,%d", card, device);
-            camera[cam_index].audio_hw = strdup(audio_hw);
-        }
-        close(fd);
-    }
-    return 0;
+    return hw;
 }

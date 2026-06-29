@@ -83,24 +83,16 @@ int Config::save_cam_config(int nb_of_cameras, cam_config *configs)
                         {"width", mode.width},
                         {"height", mode.height}});
                 }
-                //std::cout << "Modes: " << std::endl;
-                //std::cout << modes_array << std::endl;
                 toml::table fps_table;
                 fps_table.insert_or_assign(std::to_string(fps), modes_array);
                 fps_array.push_back(fps_table);
             }
             formats_table.insert_or_assign(fourcc_to_str(format), fps_array);
             formats_array.push_back(formats_table);
-            //std::cout << "fps_table: " << std::endl;
-            //std::cout << fps_array << std::endl;
-            //formats_array.push_back(std::to_string(fps), fps_array);
         }
         cam_table.insert_or_assign("Formats", formats_array);
         root.insert_or_assign(std::to_string(config.index), std::move(cam_table));
     }
-
-    std::cout << "Root: " << std::endl;
-    std::cout << root << std::endl;
 
     std::ofstream config;
     config.open(FileIO::getCamConfigFile());

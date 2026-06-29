@@ -33,158 +33,153 @@ int getUsbIndex(const char *usbPath, cam_device *devices);
 
 AVDeviceInfoList *infoList;
 AppState *app_state;
-static bool mute = true;
-static char save_dir[64];
 Camera *cameras = NULL;
 std::vector<Webcam *> webcams;
+
+//ImGui temp variables
+static bool mute = true;
+static char save_dir[64];
 
 
 int main(int argc, char **argv)
 {
-
    spdlog::set_level(spdlog::level::debug);
    Config::load_cam_config();
+   mute = Settings::isMuted();
+   Settings::getSaveDir().copy(save_dir, sizeof(save_dir));
 
-
+   struct capture_mode cap_mode = {640, 480, V4L2_PIX_FMT_MJPEG, 30.0f};
    
-      mute = Settings::isMuted();
+   int ret = 0;
+   int exitCode = 0;
+   unsigned int count = 1000;
+   bool sdlInitialized = false;
+   bool show_demo_window = true;
 
-      Settings::getSaveDir().copy(save_dir, sizeof(save_dir));
+   int nb_of_cams = 0;
 
-      int ret = 0;
-      int exitCode = 0;
-      unsigned int count = 1000;
-      bool sdlInitialized = false;
-      bool show_demo_window = true;
 
-      int nb_of_cams = 0;
 
-      app_state = (AppState *)calloc(1, sizeof(AppState));
-      if (app_state == NULL)
-      {
-         exitCode = -1;
-         goto cleanup;
-      }
+   app_state = (AppState *)calloc(1, sizeof(AppState));
+   if (app_state == NULL)
+   {
+      exitCode = -1;
+      goto cleanup;
+   }
 
-      *app_state = (AppState){
-          .width = 0,
-          .height = 0};
+   *app_state = (AppState){
+         .width = 0,
+         .height = 0};
+   cam_device* cam_devices;
+   ret = query_all_webcams(&cam_devices, &nb_of_cams);
+   if (ret < 0)
+   {
+      spdlog::critical("Failed to query for all webcams");
+      exitCode = -1;
+      goto cleanup;
+   }
 
-      ret = query_all_webcams(&cameras, &nb_of_cams);
-      if (ret < 0)
-      {
-         spdlog::critical("Failed to query for all webcams");
-         exitCode = -1;
-         goto cleanup;
-      }
+   if (nb_of_cams <= 0)
+   {
+      spdlog::critical("No webcams were detected");
+      exitCode = -1;
+      goto cleanup;
+   }
+   webcams.reserve(nb_of_cams);
 
-      if (nb_of_cams <= 0)
-      {
-         spdlog::critical("No webcams were detected");
-         exitCode = -1;
-         goto cleanup;
-      }
-      webcams.reserve(nb_of_cams);
+   // return 0;
+   for (int i = 0; i < nb_of_cams; i++)
+   {
 
-      // return 0;
-      for (int i = 0; i < nb_of_cams; i++)
-      {
-         ret = findBestCaptureMode(&cameras[i]);
-         if (ret < 0)
-         {
-            spdlog::critical("Failed to find best capture mode for webcam %i", i);
-            exitCode = -1;
-            goto cleanup;
-         }
-         webcams.push_back(new Webcam(&cameras[i]));
-         ret = webcams[i]->init();
-         if (ret < 0)
-         {
-            exitCode = ret;
-            goto cleanup;
-         }
-      }
-
-      app_state->width = webcams[0]->video.codecContext->width;
-      app_state->height = webcams[0]->video.codecContext->height;
-
-      app_state->audio_spec = (SDL_AudioSpec *)malloc(sizeof(SDL_AudioSpec));
-      if (app_state->audio_spec == NULL)
-      {
-         exitCode = -1;
-         goto cleanup;
-      }
-      ret = sdl_load_audio_spec(app_state->audio_spec, webcams[0]->audio.codecContext);
+      webcams.push_back(new Webcam(cam_devices + i, &cap_mode));
+      ret = webcams[i]->init();
       if (ret < 0)
       {
          exitCode = ret;
          goto cleanup;
       }
+   }
 
-      if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
+   app_state->width = webcams[0]->video.codecContext->width;
+   app_state->height = webcams[0]->video.codecContext->height;
+
+   app_state->audio_spec = (SDL_AudioSpec *)malloc(sizeof(SDL_AudioSpec));
+   if (app_state->audio_spec == NULL)
+   {
+      exitCode = -1;
+      goto cleanup;
+   }
+   ret = sdl_load_audio_spec(app_state->audio_spec, webcams[0]->audio.codecContext);
+   if (ret < 0)
+   {
+      exitCode = ret;
+      goto cleanup;
+   }
+
+   if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
+   {
+      exitCode = -1;
+      goto cleanup;
+   }
+   sdlInitialized = true;
+
+   for (int i = 0; i < nb_of_cams; i++)
+   {
+      ret = webcams[i]->startAudioCapture(app_state->audio_stream);
+      if (ret < 0)
       {
-         exitCode = -1;
+         exitCode = ret;
          goto cleanup;
       }
-      sdlInitialized = true;
+   }
 
+   /* ****************************Main Loop**************************** */
+   spdlog::debug("Starting app core loop");
+   while (count-- > 0)
+   {
+      SDL_Event ev;
+      while (SDL_PollEvent(&ev))
+      {
+         // spdlog::debug("Processing SDL Events");
+         if (SDL_event(app_state, &ev) != SDL_APP_CONTINUE)
+         {
+            spdlog::info("App closed by ESC key press");
+            exitCode = 0;
+            goto cleanup;
+         }
+      }
+      ImGui_ImplSDLRenderer3_NewFrame();
+      ImGui_ImplSDL3_NewFrame();
+      ImGui::NewFrame();
+
+      createGUI();
       for (int i = 0; i < nb_of_cams; i++)
       {
-         ret = webcams[i]->startAudioCapture(app_state->audio_stream);
+         ret = webcams[i]->processVideoFrame(app_state->texture);
          if (ret < 0)
          {
             exitCode = ret;
             goto cleanup;
          }
-      }
-
-      /* ****************************Main Loop**************************** */
-      spdlog::debug("Starting app core loop");
-      while (count-- > 0)
-      {
-         SDL_Event ev;
-         while (SDL_PollEvent(&ev))
-         {
-            // spdlog::debug("Processing SDL Events");
-            if (SDL_event(app_state, &ev) != SDL_APP_CONTINUE)
-            {
-               spdlog::info("App closed by ESC key press");
-               exitCode = 0;
-               goto cleanup;
-            }
-         }
-         ImGui_ImplSDLRenderer3_NewFrame();
-         ImGui_ImplSDL3_NewFrame();
-         ImGui::NewFrame();
-
-         createGUI();
-         for (int i = 0; i < nb_of_cams; i++)
-         {
-            ret = webcams[i]->processVideoFrame(app_state->texture);
-            if (ret < 0)
-            {
-               exitCode = ret;
-               goto cleanup;
-            }
-            if (ret > 0)
-            {
-               break;
-            }
-         }
-         ImGui::Render();
-
-         if (SDL_iterate(app_state) != SDL_APP_CONTINUE)
+         if (ret > 0)
          {
             break;
          }
       }
-      spdlog::info("Frame Count concluded, ending loop");
-      /* **************************End Main Loop************************** */
+      ImGui::Render();
 
-      if (ret < 0)
+      if (SDL_iterate(app_state) != SDL_APP_CONTINUE)
       {
-         exitCode = ret;
+         break;
       }
+   }
+   spdlog::info("Frame Count concluded, ending loop");
+   /* **************************End Main Loop************************** */
+
+   if (ret < 0)
+   {
+      exitCode = ret;
+   }
 
 cleanup:
    Settings::save();

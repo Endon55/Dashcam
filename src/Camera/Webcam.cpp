@@ -1,26 +1,18 @@
 #include "Webcam.h"
-#include "../Settings.h"
-#include "WebcamUtils.h"
 
-#include <chrono>
-#include <cmath>
-#include <cstring>
-#include <fcntl.h>
-#include <linux/videodev2.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
 
-Webcam::Webcam(Camera *camera) : has_audio(camera->audio_hw != NULL)
+Webcam::Webcam(cam_device *camera, capture_mode *cap_mode) : has_audio(camera->audioCard != NULL)
 {
     this->camera = camera;
     this->mute.store(Settings::isMuted());
+    this->cap_mode = cap_mode;
 }
 
 int Webcam::init()
 {
     avdevice_register_all();
     int ret;
-    spdlog::debug("Initializing Webcam: {}", camera->device_name);
+    spdlog::debug("Initializing Webcam: {}", camera->videoPath);
 
     ret = initVideo();
     if (ret < 0)
@@ -79,35 +71,26 @@ int Webcam::initVideo()
 
     AVDictionary *videoInputOptions = NULL;
 
-    ret = findBestCaptureMode(camera);
-    if (ret < 0 || camera->capture_mode == NULL ||
-        camera->capture_mode->width == 0 ||
-        camera->capture_mode->height == 0)
-    {
-        spdlog::critical("Failed to query webcam to find the best capture settings");
-        return -1;
-    }
-
     char videoSize[32];
-    snprintf(videoSize, sizeof(videoSize), "%dx%d", camera->capture_mode->width, camera->capture_mode->height);
+    snprintf(videoSize, sizeof(videoSize), "%dx%d", cap_mode->width, cap_mode->height);
     av_dict_set(&videoInputOptions, "video_size", videoSize, 0);
-    if (camera->capture_mode->fps > 0.0)
+    if (cap_mode->fps > 0.0)
     {
         char frameRate[16];
-        int stableFps = static_cast<int>(std::round(camera->capture_mode->fps));
+        int stableFps = static_cast<int>(std::round(cap_mode->fps));
         snprintf(frameRate, sizeof(frameRate), "%d", stableFps);
         av_dict_set(&videoInputOptions, "framerate", frameRate, 0);
     }
 
-    av_dict_set(&videoInputOptions, "input_format", fourcc_to_str(camera->capture_mode->pixelFormat), 0);
+    av_dict_set(&videoInputOptions, "input_format", fourcc_to_str(cap_mode->pixelFormat), 0);
 
     spdlog::info("Requesting webcam mode {} @ {:.2f} fps ({})",
                  videoSize,
-                 camera->capture_mode->fps,
-                 fourcc_to_str(camera->capture_mode->pixelFormat));
+                 cap_mode->fps,
+                 fourcc_to_str(cap_mode->pixelFormat));
 
     spdlog::info("Opening Input");
-    ret = avformat_open_input(&video.fmtContext, camera->device_name, inputFormat, &videoInputOptions);
+    ret = avformat_open_input(&video.fmtContext, camera->videoPath, inputFormat, &videoInputOptions);
     spdlog::info("Freeing Dict");
     av_dict_free(&videoInputOptions);
     if (ret < 0)
@@ -363,7 +346,7 @@ int Webcam::initAudio()
     av_dict_set(&options, "buffer_size", "65536", 0);
     av_dict_set(&options, "period_size", "2048", 0);
 
-    ret = avformat_open_input(&audio.fmtContext, camera->audio_hw, inputFormat, &options);
+    ret = avformat_open_input(&audio.fmtContext, getAudioHW(*camera->audioCard, *camera->audioDevice), inputFormat, &options);
     av_dict_free(&options);
     if (ret < 0)
     {
@@ -817,7 +800,7 @@ int Webcam::stopAudioCapture()
 
 int Webcam::close()
 {
-    spdlog::debug("Closing Webcam: {}", camera->device_name);
+    spdlog::debug("Closing Webcam: {}", camera->videoPath);
     int ret = 0;
     stopAudioCapture();
 

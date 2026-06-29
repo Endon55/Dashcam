@@ -1,8 +1,6 @@
 
 
 set(sources 
-Camera.h
-Camera.cpp
 Webcam.h
 Webcam.cpp
 Muxor.h

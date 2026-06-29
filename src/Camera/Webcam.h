@@ -29,7 +29,17 @@ extern "C"
 
 #include "Macros.h"
 #include "Muxor.h"
+#include "WebcamUtils.h" 
+#include "../Settings.h"
 #include "WebcamUtils.h"
+
+#include <chrono>
+#include <cmath>
+#include <cstring>
+#include <fcntl.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -71,12 +81,13 @@ class Webcam
 public:
     struct Video video;
     struct Audio audio;
-    struct Camera *camera;
+    struct cam_device *camera;
+    struct capture_mode *cap_mode;
     Muxor *muxor;
     const bool has_audio;
 
 public:
-    Webcam(Camera *camera);
+    Webcam(cam_device *camera, capture_mode *cap_mode);
     int init();
     int close();
     int processVideoFrame(SDL_Texture *texture);

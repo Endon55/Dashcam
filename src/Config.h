@@ -14,6 +14,7 @@ struct cam_config
     int set_width;
     int set_height;
     const char *pix_format;
+    bool enabled;
 
     const char *manufacturer;
     const char *product;
@@ -29,4 +30,5 @@ namespace Config
 {
     int load_cam_config();
     int save_cam_config(int nb_of_cameras, cam_config* configs);
+    cam_config get_cam_config(char* serialNumber);
 }

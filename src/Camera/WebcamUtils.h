@@ -20,7 +20,7 @@ extern "C"
 
 const char dev[] = "/dev/videoX";
 const int dev_len = 11;
-const int max_cams = 10;
+const int MAX_CAMS = 10;
 const int MAX_CAP_MODES = 100;
 
 struct capture_mode
@@ -30,7 +30,6 @@ struct capture_mode
     unsigned int pixelFormat = 0;
     double fps = 0.0;
 };
-
 
 struct Camera
 {
@@ -47,8 +46,8 @@ struct cam_device
     const char *usbPath;
     const char *videoPath;
     const char *audioPath;
-    const int  *audioCard;
-    const int  *audioDevice;
+    const int *audioCard;
+    const int *audioDevice;
     const char *manufacturer;
     const char *product;
     const char *vendorID;
@@ -56,12 +55,10 @@ struct cam_device
     const char *serialNumber;
 
     const capture_mode *cap_modes;
-    const int          *nb_cap_modes;
+    const int *nb_cap_modes;
 };
 
 static const char *soundValidation = "/dev/snd/pcm";
-
-
 
 int xioctl(int fd, int request, void *arg);
 
@@ -69,7 +66,7 @@ int check_for_usb_address_match(Camera *camera, int nb_of_cameras, unsigned char
 
 const char *getDeviceName(int index);
 
-int query_all_webcams(Camera **cameras, int *nb_of_cameras);
+int query_all_webcams(cam_device **cameras, int *nb_of_cameras);
 
 int pair_audio_index_with_camera(Camera *camera, int nb_of_cameras);
 
@@ -86,3 +83,4 @@ int capture_mode_score(int width, int height, uint32_t pixelFormat, double fps);
 capture_mode probeBestCaptureMode(const char *devicePath);
 
 int findBestCaptureMode(Camera *camera);
+char* getAudioHW(int card, int device);
