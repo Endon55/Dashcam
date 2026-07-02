@@ -21,7 +21,7 @@ namespace Settings
     int save();
     bool isMuted();
     void setMute(bool mute);
-    std::string getSaveDir();
+    std::filesystem::path getVideoSaveDir();
     void setSaveDir(std::string saveDir);
     std::filesystem::path getSettingsFilePath();
 }

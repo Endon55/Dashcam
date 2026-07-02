@@ -1,6 +1,6 @@
 #include "FileIO.h"
 
-std::filesystem::path get_or_create_folder(std::filesystem::path folder)
+std::filesystem::path FileIO::get_or_create_folder(std::filesystem::path folder)
 {
     if (!std::filesystem::exists(folder))
     {
@@ -12,7 +12,7 @@ std::filesystem::path get_or_create_folder(std::filesystem::path folder)
     return folder;
 }
 
-std::filesystem::path get_or_create_file(std::filesystem::path file)
+std::filesystem::path FileIO::get_or_create_file(std::filesystem::path file)
 {
     if (!std::filesystem::exists(file))
     {
@@ -29,7 +29,6 @@ std::filesystem::path get_or_create_file(std::filesystem::path file)
     }
     return file;
 }
-
 
 std::string FileIO::getHomeDir()
 {

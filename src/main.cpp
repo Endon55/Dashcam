@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
 #include <spdlog/spdlog.h>
 
 #include "Camera/Webcam.h"
@@ -24,8 +25,6 @@
 #include "Utils.h"
 #include "Config.h"
 
-
-
 int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext);
 void getCardAndDevice(const char *pcm_string, int *card, int *device);
 void createGUI();
@@ -33,23 +32,32 @@ int getUsbIndex(const char *usbPath, cam_device *devices);
 
 AVDeviceInfoList *infoList;
 AppState *app_state;
+CamState *cam_states;
 Camera *cameras = NULL;
 std::vector<Webcam *> webcams;
 
-//ImGui temp variables
+// ImGui temp variables
 static bool mute = true;
 static char save_dir[64];
 
-
 int main(int argc, char **argv)
 {
+   /*Logitech cameras add proprietary information to the end of mjpeg data packets,
+   ffmpeg cannot properly parse it, thus it throws an error every frame.
+   The frame data is still in tact and readable but to suppress the console spam, the log level has been set to fatal.
+
+   I would like to resolve this in a better way in the future.
+   */
+   av_log_set_level(AV_LOG_FATAL);
    spdlog::set_level(spdlog::level::debug);
    Config::load_cam_config();
+   Settings::load();
    mute = Settings::isMuted();
-   Settings::getSaveDir().copy(save_dir, sizeof(save_dir));
+   Settings::getVideoSaveDir().string().copy(save_dir, sizeof(save_dir));
+   bool any_has_audio = false;
 
    struct capture_mode cap_mode = {640, 480, V4L2_PIX_FMT_MJPEG, 30.0f};
-   
+
    int ret = 0;
    int exitCode = 0;
    unsigned int count = 1000;
@@ -57,8 +65,6 @@ int main(int argc, char **argv)
    bool show_demo_window = true;
 
    int nb_of_cams = 0;
-
-
 
    app_state = (AppState *)calloc(1, sizeof(AppState));
    if (app_state == NULL)
@@ -68,9 +74,9 @@ int main(int argc, char **argv)
    }
 
    *app_state = (AppState){
-         .width = 0,
-         .height = 0};
-   cam_device* cam_devices;
+       .width = 0,
+       .height = 0};
+   cam_device *cam_devices;
    ret = query_all_webcams(&cam_devices, &nb_of_cams);
    if (ret < 0)
    {
@@ -86,22 +92,23 @@ int main(int argc, char **argv)
       goto cleanup;
    }
    webcams.reserve(nb_of_cams);
-
+   cam_states = (CamState *)malloc(sizeof(CamState) * nb_of_cams);
+   spdlog::debug("Save Dir: {}", Settings::getVideoSaveDir().string());
    // return 0;
    for (int i = 0; i < nb_of_cams; i++)
    {
-
       webcams.push_back(new Webcam(cam_devices + i, &cap_mode));
-      ret = webcams[i]->init();
+      ret = webcams[i]->init(i);
       if (ret < 0)
       {
          exitCode = ret;
          goto cleanup;
       }
+      any_has_audio = webcams[i]->has_audio;
    }
 
-   app_state->width = webcams[0]->video.codecContext->width;
-   app_state->height = webcams[0]->video.codecContext->height;
+   // app_state->width = webcams[0]->video.codecContext->width;
+   // app_state->height = webcams[0]->video.codecContext->height;
 
    app_state->audio_spec = (SDL_AudioSpec *)malloc(sizeof(SDL_AudioSpec));
    if (app_state->audio_spec == NULL)
@@ -109,11 +116,14 @@ int main(int argc, char **argv)
       exitCode = -1;
       goto cleanup;
    }
-   ret = sdl_load_audio_spec(app_state->audio_spec, webcams[0]->audio.codecContext);
-   if (ret < 0)
+   if (any_has_audio)
    {
-      exitCode = ret;
-      goto cleanup;
+      ret = sdl_load_audio_spec(app_state->audio_spec, webcams[0]->audio.codecContext);
+      if (ret < 0)
+      {
+         exitCode = ret;
+         goto cleanup;
+      }
    }
 
    if (SDL_init(app_state, 0, NULL) != SDL_APP_CONTINUE)
@@ -125,11 +135,23 @@ int main(int argc, char **argv)
 
    for (int i = 0; i < nb_of_cams; i++)
    {
-      ret = webcams[i]->startAudioCapture(app_state->audio_stream);
-      if (ret < 0)
+      CamState *state = &cam_states[i];
+
+      state->texture = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, webcams[i]->video.codecContext->width, webcams[i]->video.codecContext->height);
+
+      if (state->texture == NULL)
       {
-         exitCode = ret;
+         spdlog::critical("Couldn't create texture[{}]: {}", i, SDL_GetError());
          goto cleanup;
+      }
+      if (webcams[i]->has_audio)
+      {
+         ret = webcams[i]->startAudioCapture(app_state->audio_stream);
+         if (ret < 0)
+         {
+            exitCode = ret;
+            goto cleanup;
+         }
       }
    }
 
@@ -155,7 +177,7 @@ int main(int argc, char **argv)
       createGUI();
       for (int i = 0; i < nb_of_cams; i++)
       {
-         ret = webcams[i]->processVideoFrame(app_state->texture);
+         ret = webcams[i]->processVideoFrame(cam_states[i].texture);
          if (ret < 0)
          {
             exitCode = ret;
@@ -184,56 +206,56 @@ int main(int argc, char **argv)
 cleanup:
    Settings::save();
 
-   /* for (int i = 0; i < max_cams; i++)
+   for (int i = 0; i < nb_of_cams; i++)
    {
-      if(usb_cameras[i].usbPath != NULL)
+      if (cam_devices[i].usbPath != NULL)
       {
-         free((void *)usb_cameras[i].usbPath);
+         free((void *)cam_devices[i].usbPath);
       }
-      if (usb_cameras[i].videoPath != NULL)
+      if (cam_devices[i].videoPath != NULL)
       {
-         free((void *)usb_cameras[i].videoPath);
+         free((void *)cam_devices[i].videoPath);
       }
-      if (usb_cameras[i].audioPath != NULL)
+      if (cam_devices[i].audioPath != NULL)
       {
-         free((void *)usb_cameras[i].audioPath);
+         free((void *)cam_devices[i].audioPath);
       }
-      if (usb_cameras[i].audioCard != NULL)
+      if (cam_devices[i].audioCard != NULL)
       {
-         free((void *)usb_cameras[i].audioCard);
+         free((void *)cam_devices[i].audioCard);
       }
-      if (usb_cameras[i].audioDevice != NULL)
+      if (cam_devices[i].audioDevice != NULL)
       {
-         free((void *)usb_cameras[i].audioDevice);
+         free((void *)cam_devices[i].audioDevice);
       }
-      if (usb_cameras[i].manufacturer != NULL)
+      if (cam_devices[i].manufacturer != NULL)
       {
-         free((void *)usb_cameras[i].manufacturer);
+         free((void *)cam_devices[i].manufacturer);
       }
-      if (usb_cameras[i].product != NULL)
+      if (cam_devices[i].product != NULL)
       {
-         free((void *)usb_cameras[i].product);
+         free((void *)cam_devices[i].product);
       }
-      if (usb_cameras[i].vendorID != NULL)
+      if (cam_devices[i].vendorID != NULL)
       {
-         free((void *)usb_cameras[i].vendorID);
+         free((void *)cam_devices[i].vendorID);
       }
-      if (usb_cameras[i].productID != NULL)
+      if (cam_devices[i].productID != NULL)
       {
-         free((void *)usb_cameras[i].productID);
+         free((void *)cam_devices[i].productID);
       }
-      if (usb_cameras[i].serialNumber != NULL)
+      if (cam_devices[i].serialNumber != NULL)
       {
-         free((void *)usb_cameras[i].serialNumber);
+         free((void *)cam_devices[i].serialNumber);
       }
-   } */
+   }
+
    for (int i = 0; i < nb_of_cams; i++)
    {
       if (webcams[i] != NULL)
       {
          webcams[i]->close();
       }
-      
    }
    if (app_state != NULL)
    {
@@ -340,7 +362,7 @@ void createGUI()
       ImGui::Text("window size %.1f %.1f", size.x, size.y);
 
       ImVec2 avail = ImGui::GetContentRegionAvail();
-      if (avail.x > 1.0f && avail.y > 1.0f && app_state != NULL && app_state->texture != NULL)
+      if (avail.x > 1.0f && avail.y > 1.0f && app_state != NULL && cam_states[i].texture != NULL)
       {
          float videoAspect = static_cast<float>(app_state->width) / static_cast<float>(app_state->height);
          float availAspect = avail.x / avail.y;
@@ -359,7 +381,7 @@ void createGUI()
          float yOffset = (avail.y - imageSize.y) * 0.5f;
          ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xOffset);
          ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yOffset);
-         ImGui::Image((ImTextureID)app_state->texture, imageSize);
+         ImGui::Image((ImTextureID)cam_states[i].texture, imageSize);
       }
 
       ImGui::End();
@@ -368,15 +390,15 @@ void createGUI()
 
 void getCardAndDevice(const char *pcm_string, int *card, int *device)
 {
-   const char* pcm = pcm_string;
-   //only supporting a max of 3 digit numbers
+   const char *pcm = pcm_string;
+   // only supporting a max of 3 digit numbers
    char *tmp_str = (char *)malloc(3 * sizeof(char));
    tmp_str[0] = '\0';
    char *tmp = tmp_str;
    int num_len = 0;
-   while(true)
+   while (true)
    {
-      if(std::isdigit(*pcm))
+      if (std::isdigit(*pcm))
       {
          *tmp = *pcm;
          *pcm++;
@@ -385,8 +407,6 @@ void getCardAndDevice(const char *pcm_string, int *card, int *device)
       else if (*pcm == 'C')
       {
          *pcm++;
-
-
 
          continue;
       }
@@ -415,10 +435,8 @@ void getCardAndDevice(const char *pcm_string, int *card, int *device)
    free(tmp_str);
 }
 
-
 int getUsbIndex(const char *usbPath, cam_device *devices)
 {
-
 
    return -1;
 }

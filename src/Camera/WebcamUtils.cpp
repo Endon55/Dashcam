@@ -42,7 +42,7 @@ int query_all_capture_modes(capture_mode **cap_modes, int *count, cam_device usb
     spdlog::debug("Finding all capture modes");
     while (ioctl(fd, VIDIOC_ENUM_FMT, &fmtDesc) == 0)
     {
-        spdlog::debug("Description: {}", (char *)fmtDesc.description);
+        //spdlog::debug("Description: {}", (char *)fmtDesc.description);
         const char *input_fmt = fourcc_to_str(fmtDesc.pixelformat);
         if (input_fmt == NULL)
         {
@@ -50,7 +50,7 @@ int query_all_capture_modes(capture_mode **cap_modes, int *count, cam_device usb
             fmtDesc.index++;
             continue;
         }
-        spdlog::debug("Index: {}, Type: {:x}, Pixel Format: {}", fmtDesc.index, fmtDesc.type, input_fmt);
+        //spdlog::debug("Index: {}, Type: {:x}, Pixel Format: {}", fmtDesc.index, fmtDesc.type, input_fmt);
 
         v4l2_frmsizeenum frameSize = {};
         frameSize.pixel_format = fmtDesc.pixelformat;
@@ -82,8 +82,8 @@ int query_all_capture_modes(capture_mode **cap_modes, int *count, cam_device usb
                 (*cap_modes)[*count].fps = get_highest_fps(fd, fmtDesc.pixelformat, width, height);
                 (*cap_modes)[*count].width = width;
                 (*cap_modes)[*count].height = height;
-                (*cap_modes)[*count].pixelFormat = fmtDesc.pixelformat;                                         
-                spdlog::debug("PixFmt: {}, Width: {}, Height: {}, FPS: {}", (*cap_modes)[*count].pixelFormat, (*cap_modes)[*count].width, (*cap_modes)[*count].height, (*cap_modes)[*count].fps);
+                (*cap_modes)[*count].pixelFormat = fmtDesc.pixelformat;
+                //spdlog::debug("PixFmt: {}, Width: {}, Height: {}, FPS: {}", (*cap_modes)[*count].pixelFormat, (*cap_modes)[*count].width, (*cap_modes)[*count].height, (*cap_modes)[*count].fps);
 
                 (*count)++;
             }
@@ -98,7 +98,6 @@ int query_all_capture_modes(capture_mode **cap_modes, int *count, cam_device usb
     close(fd);
     return 0;
 }
-
 
 int findBestCaptureMode(Camera *camera)
 {
@@ -469,9 +468,9 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
             test = udev_device_get_sysnum(dev);
             if (audioPath)
             {
-                spdlog::debug("   Sound:");
-                spdlog::debug("      Path: {}", path);
-                spdlog::debug("      Audio Path: {}", audioPath);
+                //spdlog::debug("   Sound:");
+                //spdlog::debug("      Path: {}", path);
+                //spdlog::debug("      Audio Path: {}", audioPath);
 
                 if (Utils::str_starts_with(audioPath, soundValidation))
                 {
@@ -567,28 +566,13 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
     return 0;
 }
 
-//PlugHW is the alternate mode but I dont think I care about that.
+// PlugHW is the alternate mode but I dont think I care about that.
 char *getAudioHW(int card, int device)
 {
-    //std::string cd = std::to_string(card);
-   //std::string dv = std::to_string(device);
-    //int len = cd.length() + dv.length();
-
-    char *hw;
-    // "hw:" + cd + "," + dv + '\0' we allot 3 spaces for each number
-    hw = (char*)malloc(sizeof(char) * (5 + 6));
-    //index = hw;
-    //const char* tmp = "hw";
-    //std::strcpy((char *)tmp, index);
-    //index += 3;
-    //std::strcpy((char *)cd.c_str(), index);
-    //index += cd.length();
-    //hw[*index] = ',';
-    //index += 1;
-    //std::strcpy((char *)dv.c_str(), index);
+    char *hw = (char*)malloc(sizeof(char) * 12);
 
     snprintf(hw, sizeof(hw), "hw:%d,%d", card, device);
-    spdlog::critical("AudioHW: {}", hw);
+    spdlog::debug("AudioHW: {}", hw);
 
     return hw;
 }

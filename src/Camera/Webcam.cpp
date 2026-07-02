@@ -1,14 +1,14 @@
 #include "Webcam.h"
 
-
 Webcam::Webcam(cam_device *camera, capture_mode *cap_mode) : has_audio(camera->audioCard != NULL)
 {
     this->camera = camera;
     this->mute.store(Settings::isMuted());
     this->cap_mode = cap_mode;
+    spdlog::debug("Has audio: {}", has_audio);
 }
 
-int Webcam::init()
+int Webcam::init(int camIndex)
 {
     avdevice_register_all();
     int ret;
@@ -40,7 +40,16 @@ int Webcam::init()
         captureFrameRate = AVRational{30, 1};
     }
 
-    muxor = new Muxor("/home/anthony/Desktop/videos/Test.mp4");
+    time_t timestamp = time({});
+    char timeString[std::size("yyyy-mm-ddThh:mm:ssZ") + 4];
+    char *ptr = &timeString[0];
+
+    snprintf(ptr, 10, "c%02d-", camIndex);
+    strftime(ptr + 4, std::size(timeString) - 5, "%FT%TZ", localtime(&timestamp));
+
+    spdlog::critical("Timestamp: {}", timeString);
+    //muxor = new Muxor("/home/anthony/Desktop/Dashcam/c01.mp4");
+    muxor = new Muxor(Settings::getVideoSaveDir().string() + "/" + timeString + ".mp4");
     ret = muxor->init(video.codecParams->width, video.codecParams->height, captureFrameRate);
     if (ret < 0)
     {
@@ -345,12 +354,13 @@ int Webcam::initAudio()
     AVDictionary *options = NULL;
     av_dict_set(&options, "buffer_size", "65536", 0);
     av_dict_set(&options, "period_size", "2048", 0);
+    audio.hw = getAudioHW(*camera->audioCard, *camera->audioDevice);
 
-    ret = avformat_open_input(&audio.fmtContext, getAudioHW(*camera->audioCard, *camera->audioDevice), inputFormat, &options);
+    ret = avformat_open_input(&audio.fmtContext, audio.hw, inputFormat, &options);
     av_dict_free(&options);
     if (ret < 0)
     {
-        spdlog::critical("Failed to open hw:0,0: {}", av_err2str(ret));
+        spdlog::critical("Failed to open hw:{},{}: {}", *camera->audioCard, *camera->audioCard, av_err2str(ret));
         return -1;
     }
 
@@ -616,7 +626,11 @@ int Webcam::processVideoFrame(SDL_Texture *texture)
     }
     filtered_frame->pts = nowUs - startUs;
 
-    muxor->write_video_frame(filtered_frame, AVRational{1, 1000000});
+    ret = muxor->write_video_frame(filtered_frame, AVRational{1, 1000000});
+    if (ret < 0)
+    {
+        spdlog::critical("Error while muxing frame: {}", av_err2str(ret));
+    }
 
     SDL_UpdateYUVTexture(texture, NULL,
                          filtered_frame->data[0], filtered_frame->linesize[0],
@@ -630,8 +644,6 @@ int Webcam::muteAudioPlayback(bool mute)
     this->mute.store(mute);
     return 0;
 }
-
-
 
 int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
 {
@@ -734,9 +746,12 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
             return -1;
         }
 
-        if (!SDL_PutAudioStreamData(audioStream, audio.out_buf, data_size))
+        if (audioStream != nullptr)
         {
-            spdlog::warn("Failed to queue audio to SDL stream: {}", SDL_GetError());
+            if (!SDL_PutAudioStreamData(audioStream, audio.out_buf, data_size))
+            {
+                spdlog::warn("Failed to queue audio to SDL stream: {}", SDL_GetError());
+            }
         }
 
         av_frame_unref(audio.frame);
@@ -752,12 +767,6 @@ void Webcam::audioCaptureLoop()
 
     while (!audioThreadStopRequested.load())
     {
-        if (audioStreamTarget == nullptr)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            continue;
-        }
-
         int ret = processAudioFrame(audioStreamTarget);
         if (ret < 0)
         {
@@ -775,6 +784,7 @@ void Webcam::audioCaptureLoop()
 
 int Webcam::startAudioCapture(SDL_AudioStream *audioStream)
 {
+
     if (audioThreadRunning.load())
     {
         return 0;

@@ -22,8 +22,8 @@ extern "C"
 #include <spdlog/spdlog.h>
 #include <mutex>
 #include "Macros.h"
-
-using namespace std;
+#include <filesystem>
+#include <string>
 
 /*
     Take the input video and audio stream and combine them into an mp4 file.
@@ -53,7 +53,7 @@ struct OutputStream
 class Muxor
 {
 private:
-    const char *filename;
+    std::string filename;
     struct OutputStream video_stream;
     struct OutputStream audio_stream;
     std::mutex mux_write_mutex;
@@ -62,7 +62,7 @@ private:
     AVFormatContext *outputContext;
 
 public:
-    Muxor(const char *filename);
+    Muxor(std::string filename);
     int init(int width, int height, AVRational frameRate);
     int close();
     int write_video_frame(AVFrame *frame, AVRational srcTimeBase);

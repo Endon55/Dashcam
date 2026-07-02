@@ -1,8 +1,9 @@
 #include "Muxor.h"
 
-Muxor::Muxor(const char *filename)
+Muxor::Muxor(std::string filename)
 {
-    this->filename = filename;
+    spdlog::debug("Filename: {}", filename.c_str());
+    this->filename = std::move(filename);
 }
 
 int Muxor::init(int width, int height, AVRational frameRate)
@@ -12,7 +13,7 @@ int Muxor::init(int width, int height, AVRational frameRate)
     int ret;
     AVDictionary *opt = NULL;
 
-    avformat_alloc_output_context2(&outputContext, NULL, "MP4", filename);
+    avformat_alloc_output_context2(&outputContext, NULL, "MP4", filename.c_str());
 
     if (!outputContext)
     {
@@ -71,9 +72,9 @@ int Muxor::init(int width, int height, AVRational frameRate)
     }
 
     // Debug Info about the stream
-    av_dump_format(outputContext, 0, filename, 1);
+    av_dump_format(outputContext, 0, filename.c_str(), 1);
 
-    ret = avio_open(&outputContext->pb, filename, AVIO_FLAG_WRITE);
+    ret = avio_open(&outputContext->pb, filename.c_str(), AVIO_FLAG_WRITE);
     if (ret < 0)
     {
         spdlog::critical("Failed to open output file: {}", av_err2str(ret));
@@ -482,7 +483,7 @@ int Muxor::write_frame(AVFormatContext *outputContext, AVCodecContext *codecCont
         ret = av_interleaved_write_frame(outputContext, packet);
         if (ret < 0)
         {
-            spdlog::critical("Failed to write ou8tput packet: {}", av_err2str(ret));
+            spdlog::critical("Failed to write output packet: {}", av_err2str(ret));
             return -1;
         }
         av_packet_unref(packet);

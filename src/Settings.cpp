@@ -12,7 +12,6 @@ namespace
     {
         state.mute = toml["mute"].value_or(false);
         state.save_dir = toml["save_dir"].value_or(FileIO::getHomeDir() + "/Desktop/Dashcam");
-
         toml::node_view flute_view = toml["flute"];
 
         return 0;
@@ -35,7 +34,7 @@ int Settings::load()
     {
         configToml = toml::parse_file(getSettingsFilePath().string());
     }
-    catch(const toml::parse_error& e)
+    catch (const toml::parse_error &e)
     {
         std::cerr << e.what() << '\n';
         spdlog::critical("Failed to parse Settings file.");
@@ -70,9 +69,9 @@ void Settings::setMute(bool mute)
     save();
 }
 
-std::string Settings::getSaveDir()
+std::filesystem::path Settings::getVideoSaveDir()
 {
-    return state.save_dir;
+    return FileIO::get_or_create_folder(state.save_dir);
 }
 void Settings::setSaveDir(std::string saveDir)
 {

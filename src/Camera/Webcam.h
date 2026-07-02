@@ -40,6 +40,7 @@ extern "C"
 #include <linux/videodev2.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <ctime>
 
 using namespace std;
 
@@ -63,6 +64,7 @@ struct Video
 struct Audio
 {
     int stream_index;
+    const char* hw;
     AVFormatContext *fmtContext;
     const AVCodec *codec;
     AVCodecParameters *codecParams;
@@ -88,7 +90,7 @@ public:
 
 public:
     Webcam(cam_device *camera, capture_mode *cap_mode);
-    int init();
+    int init(int camIndex);
     int close();
     int processVideoFrame(SDL_Texture *texture);
     int processAudioFrame(SDL_AudioStream *audioStream);

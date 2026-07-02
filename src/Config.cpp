@@ -50,20 +50,20 @@ int Config::save_cam_config(int nb_of_cameras, cam_config *configs)
 
         std::map<unsigned int, std::map<double, std::vector<capture_mode>>> grouped_modes;
 
-         for (int j = 0; j < cap_cout; j++)
+        for (int j = 0; j < cap_cout; j++)
         {
-            //toml::table formats;
+            // toml::table formats;
             const capture_mode mode = config.cap_modes[j];
             grouped_modes[mode.pixelFormat][mode.fps].push_back(mode);
 
-            //formats.insert_or_assign("fps", toml::value{mode.fps});
-            //formats.insert_or_assign("width", toml::value{mode.width});
-            //formats.insert_or_assign("height", toml::value{mode.height});
+            // formats.insert_or_assign("fps", toml::value{mode.fps});
+            // formats.insert_or_assign("width", toml::value{mode.width});
+            // formats.insert_or_assign("height", toml::value{mode.height});
 
-            //cam_table.insert_or_assign(std::to_string(mode.pixelFormat), std::move(formats));
-        } 
+            // cam_table.insert_or_assign(std::to_string(mode.pixelFormat), std::move(formats));
+        }
         toml::array formats_array;
-        
+
         for (auto &[format, fps_map] : grouped_modes)
         {
             toml::array fps_array;
@@ -73,10 +73,10 @@ int Config::save_cam_config(int nb_of_cameras, cam_config *configs)
             {
                 toml::array modes_array;
                 std::sort(modes.begin(), modes.end(),
-                            [](capture_mode const &a, capture_mode const &b) -> bool
-                            {
-                                return (a.width * a.height) > (b.width * b.height);
-                            });
+                          [](capture_mode const &a, capture_mode const &b) -> bool
+                          {
+                              return (a.width * a.height) > (b.width * b.height);
+                          });
                 for (auto &mode : modes)
                 {
                     modes_array.push_back(toml::table{
