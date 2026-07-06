@@ -10,4 +10,4 @@ WebcamUtils.cpp
 Macros.h)
 
 add_library(camera ${sources})
-target_link_libraries(camera PRIVATE PkgConfig::FFMPEG spdlog::spdlog)
+target_link_libraries(camera PRIVATE PkgConfig::FFMPEG spdlog::spdlog ALSA::ALSA)

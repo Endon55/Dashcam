@@ -331,7 +331,6 @@ int Webcam::initVideo()
 int Webcam::initAudio()
 {
     spdlog::info("Initializing Audio");
-
     audio = {};
     int ret = 0;
     audio.stream_index = -1;
@@ -351,16 +350,53 @@ int Webcam::initAudio()
         return -1;
     }
 
-    AVDictionary *options = NULL;
-    av_dict_set(&options, "buffer_size", "65536", 0);
-    av_dict_set(&options, "period_size", "2048", 0);
+
+
+
     audio.hw = getAudioHW(*camera->audioCard, *camera->audioDevice);
+    snd_pcm_t * handle;
+    ret = snd_pcm_open(&handle, audio.hw, SND_PCM_STREAM_CAPTURE, 0);
+    if(ret < 0)
+    {
+        spdlog::critical("Failed to open device ({}) in alsa: {}", audio.hw, snd_strerror(ret));
+        return ret;
+    }
+    
+    snd_pcm_hw_params_t *params;
+    snd_pcm_hw_params_alloca(&params);
+    snd_pcm_hw_params_any(handle, params);
+
+    unsigned int min_channels, max_channels;
+    snd_pcm_hw_params_get_channels_min(params, &min_channels);
+    snd_pcm_hw_params_get_channels_max(params, &max_channels);
+
+    spdlog::debug("Webcam Audio Channels Min: {}, Max: {}", min_channels, max_channels);
+
+    unsigned int min_rate, max_rate;
+    snd_pcm_hw_params_get_rate_min(params, &min_rate, NULL);
+    snd_pcm_hw_params_get_rate_max(params, &max_rate, NULL);
+    spdlog::debug("Webcam Audio Rate Min: {}, Max: {}", min_rate, max_rate);
+
+    snd_pcm_close(handle);
+
+    
+    AVDictionary *options = NULL;
+    
+    char *sample_rate = (char*) malloc(sizeof(char) * 20);
+    char *channels = (char*) malloc(sizeof(char) * 10);
+
+    snprintf(sample_rate, 20, "%u", max_rate);
+    
+    snprintf(channels, 20, "%u", max_channels);
+
+    av_dict_set(&options, "sample_rate", sample_rate, 0);
+    av_dict_set(&options, "channels", channels, 0);
 
     ret = avformat_open_input(&audio.fmtContext, audio.hw, inputFormat, &options);
     av_dict_free(&options);
     if (ret < 0)
     {
-        spdlog::critical("Failed to open hw:{},{}: {}", *camera->audioCard, *camera->audioCard, av_err2str(ret));
+        spdlog::critical("Failed to open hw:{},{}: {}", *camera->audioCard, *camera->audioDevice, av_err2str(ret));
         return -1;
     }
 

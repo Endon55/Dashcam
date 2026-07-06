@@ -2,9 +2,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string>
-#include <string_view>
 #include <inttypes.h>
-#include <iostream>
 #include <vector>
 
 #include <linux/videodev2.h>
@@ -12,17 +10,15 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
+#include <alsa/asoundlib.h>
 
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
 #include <spdlog/spdlog.h>
 
 #include "Camera/Webcam.h"
-#include "Camera/Muxor.h"
 #include "Camera/WebcamUtils.h"
 #include "Window.h"
 #include "Settings.h"
-#include "Utils.h"
 #include "Config.h"
 
 int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext);

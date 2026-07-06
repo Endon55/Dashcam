@@ -4,8 +4,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(Dashcam)
 
-add_subdirectory(Camera)
 add_executable(Dashcam main.cpp)
+add_subdirectory(Camera)
 
 set(sources 
 Window.h
@@ -18,23 +18,25 @@ FileIO.h
 FileIO.cpp
 Utils.cpp)
 
+
 add_library(source ${sources})
 target_link_libraries(source PRIVATE libjpeg-turbo::turbojpeg-static SDL3::SDL3 imgui::imgui)
 target_link_libraries(source PUBLIC udev)
 
 target_link_libraries(Dashcam PUBLIC udev)
 
+target_include_directories(Dashcam PRIVATE ${ALSA_INCLUDE_DIR})
 target_link_libraries(Dashcam PRIVATE 
 fmt::fmt 
 spdlog::spdlog
 SDL3::SDL3 
 SDL3_image::SDL3_image 
+ALSA::ALSA
 libjpeg-turbo::turbojpeg-static 
 PkgConfig::FFMPEG
 imgui::imgui
 tomlplusplus::tomlplusplus
 camera 
 source
-asound
 )
 

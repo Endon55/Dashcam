@@ -3,3 +3,4 @@ vcpkg
 vcpkg_installed/
 build/
 imgui.ini
+compile_commands.json

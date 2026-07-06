@@ -7,7 +7,17 @@
 #include <mutex>
 #include <SDL3/SDL.h>
 #include <atomic>
-
+#include <chrono>
+#include <cmath>
+#include <cstring>
+#include <string>
+#include <fcntl.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <ctime>
+#include <alsa/asoundlib.h>
+#include <stdio.h>
 extern "C"
 {
 #include <libavcodec/avcodec.h>
@@ -26,21 +36,13 @@ extern "C"
 #include <libavfilter/buffersink.h>
 }
 #include <spdlog/spdlog.h>
-
+#include <stdio.h>
 #include "Macros.h"
 #include "Muxor.h"
 #include "WebcamUtils.h" 
 #include "../Settings.h"
 #include "WebcamUtils.h"
 
-#include <chrono>
-#include <cmath>
-#include <cstring>
-#include <fcntl.h>
-#include <linux/videodev2.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <ctime>
 
 using namespace std;
 

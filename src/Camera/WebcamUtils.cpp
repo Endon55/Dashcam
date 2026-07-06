@@ -468,9 +468,9 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
             test = udev_device_get_sysnum(dev);
             if (audioPath)
             {
-                //spdlog::debug("   Sound:");
-                //spdlog::debug("      Path: {}", path);
-                //spdlog::debug("      Audio Path: {}", audioPath);
+                spdlog::debug("   Sound:");
+                spdlog::debug("      Path: {}", path);
+                spdlog::debug("      Audio Path: {}", audioPath);
 
                 if (Utils::str_starts_with(audioPath, soundValidation))
                 {
@@ -514,12 +514,12 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
             device->audioCard = card_num;
             device->audioDevice = device_num;
 
-            device->manufacturer = (manufacturer != NULL ? manufacturer : "[none]");
-            device->product = (product != NULL ? product : "[none]");
+            device->manufacturer = manufacturer;
+            device->product = product;
 
-            device->vendorID = (vendorID != NULL ? vendorID : "[none]");
-            device->productID = (productID != NULL ? productID : "[none]");
-            device->serialNumber = (serialNumber != NULL ? serialNumber : "[none]");
+            device->vendorID = vendorID;
+            device->productID = productID;
+            device->serialNumber = serialNumber;
             nb_usb_cameras++;
         }
 
@@ -536,11 +536,11 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
         spdlog::debug("   Audio Path:      {}", cam.audioPath);
         spdlog::debug("   Card Number:      {}", *cam.audioCard);
         spdlog::debug("   Device Number:      {}", *cam.audioDevice);
-        spdlog::debug("   Manufcaturer:  {}", cam.manufacturer);
-        spdlog::debug("   Product        {}", cam.product);
-        spdlog::debug("   Vendor ID:     {}", cam.vendorID);
-        spdlog::debug("   Product ID:    {}", cam.productID);
-        spdlog::debug("   Serial Number: {}", cam.serialNumber);
+        spdlog::debug("   Manufacturer:  {}", Utils::str_or_default(cam.manufacturer, "[none]"));
+        spdlog::debug("   Product        {}", Utils::str_or_default(cam.product, "[none]"));
+        spdlog::debug("   Vendor ID:     {}", Utils::str_or_default(cam.vendorID, "[none]"));
+        spdlog::debug("   Product ID:    {}", Utils::str_or_default(cam.productID, "[none]"));
+        spdlog::debug("   Serial Number: {}", Utils::str_or_default(cam.serialNumber, "[none]"));
     }
 
     for (int i = 0; i < nb_usb_cameras; i++)
@@ -574,5 +574,5 @@ char *getAudioHW(int card, int device)
     snprintf(hw, sizeof(hw), "hw:%d,%d", card, device);
     spdlog::debug("AudioHW: {}", hw);
 
-    return hw;
+    return std::move(hw);
 }

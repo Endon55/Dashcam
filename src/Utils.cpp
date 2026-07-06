@@ -21,3 +21,8 @@ bool Utils::str_starts_with(const char* base_string, const char* condition_strin
     }
     return false;
 }
+
+const char* Utils::str_or_default(const char* str, const char* def)
+{
+    return (str != NULL ? str : def);
+}

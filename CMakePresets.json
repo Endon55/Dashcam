@@ -10,6 +10,7 @@
       },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_BUILD_TYPE": "Release",
         "DBUS_SESSION_SOCKET_DIR": "/tmp",
         "VCPKG_HOST_TRIPLET": "x64-linux"
       }
@@ -40,6 +41,7 @@
       },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja",
         "PKG_CONFIG_EXECUTABLE": "/usr/bin/pkg-config",
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",

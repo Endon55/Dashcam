@@ -15,6 +15,7 @@
         "sdl3-renderer-binding"
       ]
     },
+    "alsa",
     "libjpeg-turbo",
     "sdl3",
     "sdl3-image",
