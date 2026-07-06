@@ -99,91 +99,6 @@ int query_all_capture_modes(capture_mode **cap_modes, int *count, cam_device usb
     return 0;
 }
 
-int findBestCaptureMode(Camera *camera)
-{
-    if (camera->capture_mode != NULL)
-    {
-        free(camera->capture_mode);
-        camera->capture_mode = NULL;
-    }
-    camera->capture_mode = (capture_mode *)malloc(sizeof(capture_mode));
-    capture_mode *bestMode = camera->capture_mode;
-    int64_t bestScore = -1;
-
-    int fd = open(camera->device_name, O_RDWR | O_NONBLOCK);
-    if (fd < 0)
-    {
-        spdlog::warn("Unable to probe V4L2 formats for {}", camera->device_name);
-        return -1;
-    }
-
-    v4l2_fmtdesc fmtDesc = {};
-    fmtDesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    spdlog::critical("Finding best mode");
-    while (ioctl(fd, VIDIOC_ENUM_FMT, &fmtDesc) == 0)
-    {
-        const char *input_fmt = fourcc_to_str(fmtDesc.pixelformat);
-        if (input_fmt == NULL)
-        {
-            spdlog::critical("Couldnt parse the v4l2 pixel format.");
-            fmtDesc.index++;
-            continue;
-        }
-        else if (input_fmt != "mjpeg")
-        {
-            spdlog::info("Skipping all non mjpeg types");
-            fmtDesc.index++;
-            continue;
-        }
-        spdlog::debug("Index: {}, Type: {:x}, Pixel Format: {}", fmtDesc.index, fmtDesc.type, input_fmt);
-
-        v4l2_frmsizeenum frameSize = {};
-        frameSize.pixel_format = fmtDesc.pixelformat;
-        // Each loop enumerates another frame option.
-        while (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frameSize) == 0)
-        {
-            int width = 0;
-            int height = 0;
-
-            if (frameSize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
-            {
-                width = static_cast<int>(frameSize.discrete.width);
-                height = static_cast<int>(frameSize.discrete.height);
-            }
-            else if (frameSize.type == V4L2_FRMSIZE_TYPE_STEPWISE || frameSize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS)
-            {
-                width = static_cast<int>(frameSize.stepwise.max_width);
-                height = static_cast<int>(frameSize.stepwise.max_height);
-            }
-
-            if (width > 0 && height > 0)
-            {
-                double fps = get_highest_fps(fd, fmtDesc.pixelformat, width, height);
-
-                // FIX THE SCORE PART
-                int score = 1000;
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    bestMode->width = width;
-                    bestMode->height = height;
-                    bestMode->pixelFormat = fmtDesc.pixelformat;
-                    // bestMode->input_fmt = input_fmt;
-                    bestMode->fps = fps;
-                }
-                spdlog::debug("Type: {}, Width: {}, Height: {}, FPS: {}", frameSize.type, width, height, fps);
-            }
-
-            frameSize.index++;
-        }
-
-        fmtDesc.index++;
-    }
-
-    close(fd);
-    return 0;
-}
-
 AVPixelFormat canonicalizePixelFormat(AVPixelFormat pixelFormat)
 {
     switch (pixelFormat)
@@ -408,7 +323,6 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
     {
         spdlog::info("Udev Started");
     }
-
     enum_video = udev_enumerate_new(udev);
     enum_audio = udev_enumerate_new(udev);
     udev_enumerate_add_match_subsystem(enum_video, "video4linux");

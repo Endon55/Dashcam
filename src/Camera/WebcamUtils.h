@@ -31,16 +31,6 @@ struct capture_mode
     double fps = 0.0;
 };
 
-struct Camera
-{
-    const char *bus_info;
-    const char *device_name;
-    const char *audio_hw;
-    int video_index;
-    int nb_of_video_entries;
-    struct capture_mode *capture_mode;
-};
-
 struct cam_device
 {
     const char *usbPath;
@@ -62,13 +52,9 @@ static const char *soundValidation = "/dev/snd/pcm";
 
 int xioctl(int fd, int request, void *arg);
 
-int check_for_usb_address_match(Camera *camera, int nb_of_cameras, unsigned char *device_description);
-
 const char *getDeviceName(int index);
 
 int query_all_webcams(cam_device **cameras, int *nb_of_cameras);
-
-int pair_audio_index_with_camera(Camera *camera, int nb_of_cameras);
 
 AVPixelFormat canonicalizePixelFormat(AVPixelFormat pixelFormat);
 
@@ -82,5 +68,4 @@ int capture_mode_score(int width, int height, uint32_t pixelFormat, double fps);
 
 capture_mode probeBestCaptureMode(const char *devicePath);
 
-int findBestCaptureMode(Camera *camera);
 char* getAudioHW(int card, int device);

@@ -4,7 +4,7 @@
 #include <string>
 #include <inttypes.h>
 #include <vector>
-
+#include <SDL3/SDL_render.h>
 #include <linux/videodev2.h>
 #include <libudev.h>
 #include <sys/ioctl.h>
@@ -20,7 +20,7 @@
 #include "Window.h"
 #include "Settings.h"
 #include "Config.h"
-
+#include "State.h"
 int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext);
 void getCardAndDevice(const char *pcm_string, int *card, int *device);
 void createGUI();
@@ -28,9 +28,6 @@ int getUsbIndex(const char *usbPath, cam_device *devices);
 
 AVDeviceInfoList *infoList;
 AppState *app_state;
-CamState *cam_states;
-Camera *cameras = NULL;
-std::vector<Webcam *> webcams;
 
 // ImGui temp variables
 static bool mute = true;
@@ -74,6 +71,7 @@ int main(int argc, char **argv)
        .height = 0};
    cam_device *cam_devices;
    ret = query_all_webcams(&cam_devices, &nb_of_cams);
+   app_state->camera_count = nb_of_cams;
    if (ret < 0)
    {
       spdlog::critical("Failed to query for all webcams");
@@ -87,20 +85,21 @@ int main(int argc, char **argv)
       exitCode = -1;
       goto cleanup;
    }
-   webcams.reserve(nb_of_cams);
-   cam_states = (CamState *)malloc(sizeof(CamState) * nb_of_cams);
+
+   app_state->webcams = new Webcam*[nb_of_cams];
+   app_state->cam_textures = (SDL_Texture**)malloc(sizeof(SDL_Texture*) * nb_of_cams); 
    spdlog::debug("Save Dir: {}", Settings::getVideoSaveDir().string());
    // return 0;
    for (int i = 0; i < nb_of_cams; i++)
    {
-      webcams.push_back(new Webcam(cam_devices + i, &cap_mode));
-      ret = webcams[i]->init(i);
+      app_state->webcams[i] = new Webcam(cam_devices + i,  &cap_mode);
+      ret = app_state->webcams[i]->init(i);
       if (ret < 0)
       {
          exitCode = ret;
          goto cleanup;
       }
-      any_has_audio = webcams[i]->has_audio;
+      any_has_audio = app_state->webcams[i]->has_audio;
    }
 
    // app_state->width = webcams[0]->video.codecContext->width;
@@ -114,7 +113,7 @@ int main(int argc, char **argv)
    }
    if (any_has_audio)
    {
-      ret = sdl_load_audio_spec(app_state->audio_spec, webcams[0]->audio.codecContext);
+      ret = sdl_load_audio_spec(app_state->audio_spec, app_state->webcams[0]->audio.codecContext);
       if (ret < 0)
       {
          exitCode = ret;
@@ -131,18 +130,16 @@ int main(int argc, char **argv)
 
    for (int i = 0; i < nb_of_cams; i++)
    {
-      CamState *state = &cam_states[i];
+      app_state->cam_textures[i] = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, app_state->webcams[i]->video.codecContext->width, app_state->webcams[i]->video.codecContext->height);
 
-      state->texture = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, webcams[i]->video.codecContext->width, webcams[i]->video.codecContext->height);
-
-      if (state->texture == NULL)
+      if (app_state->cam_textures[i] == NULL)
       {
          spdlog::critical("Couldn't create texture[{}]: {}", i, SDL_GetError());
          goto cleanup;
       }
-      if (webcams[i]->has_audio)
+      if (app_state->webcams[i]->has_audio)
       {
-         ret = webcams[i]->startAudioCapture(app_state->audio_stream);
+         ret = app_state->webcams[i]->startAudioCapture(app_state->audio_stream);
          if (ret < 0)
          {
             exitCode = ret;
@@ -173,7 +170,7 @@ int main(int argc, char **argv)
       createGUI();
       for (int i = 0; i < nb_of_cams; i++)
       {
-         ret = webcams[i]->processVideoFrame(cam_states[i].texture);
+         ret = app_state->webcams[i]->processVideoFrame(app_state->cam_textures[i]);
          if (ret < 0)
          {
             exitCode = ret;
@@ -248,9 +245,9 @@ cleanup:
 
    for (int i = 0; i < nb_of_cams; i++)
    {
-      if (webcams[i] != NULL)
+      if (app_state->webcams[i] != NULL)
       {
-         webcams[i]->close();
+        app_state->webcams[i]->close();
       }
    }
    if (app_state != NULL)
@@ -269,7 +266,7 @@ cleanup:
       }
       app_state = NULL;
    }
-
+/*
    if (cameras != NULL)
    {
       for (int i = 0; i < nb_of_cams; ++i)
@@ -297,7 +294,7 @@ cleanup:
       }
       delete[] cameras;
    }
-
+*/
    return exitCode;
 }
 
@@ -330,7 +327,7 @@ void createGUI()
       }
       if (ImGui::Checkbox("Mute", &mute))
       {
-         webcams[0]->muteAudioPlayback(mute);
+         app_state->webcams[0]->muteAudioPlayback(mute);
          Settings::setMute(mute);
       }
       ImGui::EndMainMenuBar();
@@ -344,10 +341,15 @@ void createGUI()
       {
          Settings::setSaveDir(std::string(save_dir));
       }
-
+      for(int i = 0; i < app_state->camera_count; i++)
+      {
+          ImGui::Text("Camera " + 1);
+   //       ImGui::
+        
+      }
       ImGui::End();
    }
-   for (int i = 0; i < webcams.size(); i++)
+   for (int i = 0; i < app_state->camera_count; i++)
    {
       ImGui::Begin("Camera " + i);
 
@@ -358,7 +360,7 @@ void createGUI()
       ImGui::Text("window size %.1f %.1f", size.x, size.y);
 
       ImVec2 avail = ImGui::GetContentRegionAvail();
-      if (avail.x > 1.0f && avail.y > 1.0f && app_state != NULL && cam_states[i].texture != NULL)
+      if (avail.x > 1.0f && avail.y > 1.0f && app_state != NULL && app_state->cam_textures[i] != NULL)
       {
          float videoAspect = static_cast<float>(app_state->width) / static_cast<float>(app_state->height);
          float availAspect = avail.x / avail.y;
@@ -377,7 +379,7 @@ void createGUI()
          float yOffset = (avail.y - imageSize.y) * 0.5f;
          ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xOffset);
          ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yOffset);
-         ImGui::Image((ImTextureID)cam_states[i].texture, imageSize);
+         ImGui::Image((ImTextureID)app_state->cam_textures[i], imageSize);
       }
 
       ImGui::End();

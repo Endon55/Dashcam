@@ -9,25 +9,8 @@
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
+#include "State.h"
 
-struct AppState
-{
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    //SDL_Texture *texture;
-    SDL_Event *event;
-    SDL_AudioSpec *audio_spec;
-    SDL_AudioStream *audio_stream;
-    int width;
-    int height;
-    int camera_count;
-    int pitch = -1;
-};
-struct CamState
-{
-    SDL_Texture *texture;
-    //SDL_AudioStream *audio_stream;
-};
 
 SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv);
 
