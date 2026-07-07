@@ -21,19 +21,19 @@ int Config::load_cam_config()
 
     return 0;
 }
-int Config::save_cam_config(int nb_of_cameras, cam_config *configs)
+int Config::save_cam_config(int nb_of_cameras, cam_device *devices)
 {
     toml::table root;
     spdlog::debug("Cam Num: {}", nb_of_cameras);
     for (int i = 0; i < nb_of_cameras; i++)
     {
         toml::table cam_table;
-        cam_config config = configs[i];
-        cam_table.insert_or_assign("set_fps", toml::value{config.set_fps});
+        cam_device config = devices[i];
+        cam_table.insert_or_assign("set_fps", toml::value{config.default_mode->fps});
 
-        cam_table.insert_or_assign("set_width", toml::value{config.set_width});
-        cam_table.insert_or_assign("set_height", toml::value{config.set_height});
-        cam_table.insert_or_assign("pix_format", toml::value{std::string_view{config.pix_format ? config.pix_format : "[none]"}});
+        cam_table.insert_or_assign("set_width", toml::value{config.default_mode->width});
+        cam_table.insert_or_assign("set_height", toml::value{config.default_mode->height});
+        cam_table.insert_or_assign("pix_format", toml::value{std::string_view{config.default_mode->pixelFormat ? fourcc_to_str(config.default_mode->pixelFormat) : "[none]"}});
         cam_table.insert_or_assign("manufacturer", toml::value{std::string_view{config.manufacturer ? config.manufacturer : "[none]"}});
         cam_table.insert_or_assign("product", toml::value{std::string_view{config.product ? config.product : "[none]"}});
         cam_table.insert_or_assign("vendorID", toml::value{std::string_view{config.vendorID ? config.vendorID : "[none]"}});
@@ -52,15 +52,8 @@ int Config::save_cam_config(int nb_of_cameras, cam_config *configs)
 
         for (int j = 0; j < cap_cout; j++)
         {
-            // toml::table formats;
             const capture_mode mode = config.cap_modes[j];
             grouped_modes[mode.pixelFormat][mode.fps].push_back(mode);
-
-            // formats.insert_or_assign("fps", toml::value{mode.fps});
-            // formats.insert_or_assign("width", toml::value{mode.width});
-            // formats.insert_or_assign("height", toml::value{mode.height});
-
-            // cam_table.insert_or_assign(std::to_string(mode.pixelFormat), std::move(formats));
         }
         toml::array formats_array;
 
@@ -91,7 +84,7 @@ int Config::save_cam_config(int nb_of_cameras, cam_config *configs)
             formats_array.push_back(formats_table);
         }
         cam_table.insert_or_assign("Formats", formats_array);
-        root.insert_or_assign(std::to_string(config.index), std::move(cam_table));
+        root.insert_or_assign(std::to_string(i), std::move(cam_table));
     }
 
     std::ofstream config;

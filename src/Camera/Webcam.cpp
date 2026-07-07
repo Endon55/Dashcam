@@ -955,3 +955,4 @@ int Webcam::closeAudio()
 
     return 0;
 }
+

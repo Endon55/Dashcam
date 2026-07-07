@@ -1,11 +1,12 @@
 #pragma once
 
 #include "FileIO.h"
-#include "Camera/WebcamUtils.h"
+#include "Camera/Webcam.h"
 #include <fstream>
 #include <toml++/toml.hpp>
 #include <iostream>
 #include <algorithm>
+#include "State.h"
 
 struct cam_config
 {
@@ -26,9 +27,10 @@ struct cam_config
     const int *nb_cap_modes;
 };
 
+
 namespace Config
 {
     int load_cam_config();
-    int save_cam_config(int nb_of_cameras, cam_config* configs);
+    int save_cam_config(int nb_of_cameras, cam_device* devices);
     cam_config get_cam_config(char* serialNumber);
 }

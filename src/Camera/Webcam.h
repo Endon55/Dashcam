@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <stdlib.h>
@@ -12,11 +13,9 @@
 #include <cstring>
 #include <string>
 #include <fcntl.h>
-#include <linux/videodev2.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <ctime>
-#include <alsa/asoundlib.h>
+
+
+
 #include <stdio.h>
 extern "C"
 {
@@ -39,10 +38,10 @@ extern "C"
 #include <stdio.h>
 #include "Macros.h"
 #include "Muxor.h"
-#include "WebcamUtils.h" 
 #include "../Settings.h"
+#include "../Utils.h"
 #include "WebcamUtils.h"
-
+#include "Camera.h"
 
 using namespace std;
 

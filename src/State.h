@@ -6,7 +6,6 @@
 #include <SDL3_image/SDL_image.h>
 #include <SDL3/SDL_iostream.h>
 #include "Camera/Webcam.h"
-
 struct AppState
 {
     SDL_Window *window;
@@ -21,3 +20,4 @@ struct AppState
     SDL_Texture** cam_textures;
     Webcam** webcams;
 };
+

@@ -1,9 +1,9 @@
 #include "WebcamUtils.h"
-#include <sound/asound.h>
+
+
 
 int query_all_capture_modes(capture_mode **cap_modes, int *count, cam_device usb_camera)
 {
-
     int fd = open(usb_camera.videoPath, O_RDWR | O_NONBLOCK);
     if (fd < 0)
     {
@@ -279,28 +279,6 @@ const char *getDeviceName(int index)
     return device;
 }
 
-cam_config *merge_cam_structs(int nb_of_cameras, cam_device *usb_cameras)
-{
-    cam_config *return_cam_configs = (cam_config *)malloc(sizeof(cam_config) * nb_of_cameras);
-
-    for (int i = 0; i < nb_of_cameras; i++)
-    {
-        return_cam_configs[i].index = i;
-        return_cam_configs[i].set_fps = 30;
-        return_cam_configs[i].set_width = 1920;
-        return_cam_configs[i].set_height = 1080;
-        return_cam_configs[i].pix_format = new char[6]{"mjpeg"};
-        return_cam_configs[i].manufacturer = usb_cameras[i].manufacturer;
-        return_cam_configs[i].serialNumber = usb_cameras[i].serialNumber;
-        return_cam_configs[i].product = usb_cameras[i].product;
-        return_cam_configs[i].productID = usb_cameras[i].productID;
-        return_cam_configs[i].vendorID = usb_cameras[i].vendorID;
-        return_cam_configs[i].cap_modes = usb_cameras[i].cap_modes;
-        return_cam_configs[i].nb_cap_modes = usb_cameras[i].nb_cap_modes;
-    }
-    return return_cam_configs;
-}
-
 int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
 {
 
@@ -459,7 +437,7 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
 
     for (int i = 0; i < nb_usb_cameras; i++)
     {
-        capture_mode *cap_modes = nullptr;
+        capture_mode *cap_modes;
         int *nb_of_cap_modes = new int(0);
 
         ret = query_all_capture_modes(&cap_modes, nb_of_cap_modes, usb_cameras[i]);
@@ -472,9 +450,9 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
         spdlog::critical("Cap Modes: {}", *nb_of_cap_modes);
     }
 
-    cam_config *configs = merge_cam_structs(nb_usb_cameras, usb_cameras);
+    //cam_config *configs = merge_cam_structs(nb_usb_cameras, usb_cameras);
 
-    Config::save_cam_config(nb_usb_cameras, configs);
+    //Config::save_cam_config(nb_usb_cameras, configs);
 
     *nb_of_cameras = nb_usb_cameras;
     return 0;

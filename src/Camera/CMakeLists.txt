@@ -7,6 +7,7 @@ Muxor.h
 Muxor.cpp
 WebcamUtils.h
 WebcamUtils.cpp
+Camera.h
 Macros.h)
 
 add_library(camera ${sources})

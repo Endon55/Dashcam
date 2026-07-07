@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string>
 #include <inttypes.h>
-#include <vector>
 #include <SDL3/SDL_render.h>
 #include <linux/videodev2.h>
 #include <libudev.h>
@@ -21,18 +20,16 @@
 #include "Settings.h"
 #include "Config.h"
 #include "State.h"
+#include "UI.h"
+
 int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext);
 void getCardAndDevice(const char *pcm_string, int *card, int *device);
-void createGUI();
 int getUsbIndex(const char *usbPath, cam_device *devices);
 
 AVDeviceInfoList *infoList;
 AppState *app_state;
 
 // ImGui temp variables
-static bool mute = true;
-static char save_dir[64];
-
 int main(int argc, char **argv)
 {
    /*Logitech cameras add proprietary information to the end of mjpeg data packets,
@@ -167,7 +164,7 @@ int main(int argc, char **argv)
       ImGui_ImplSDL3_NewFrame();
       ImGui::NewFrame();
 
-      createGUI();
+      createGUI(app_state);
       for (int i = 0; i < nb_of_cams; i++)
       {
          ret = app_state->webcams[i]->processVideoFrame(app_state->cam_textures[i]);
@@ -311,81 +308,6 @@ int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext)
 
    return 1;
 }
-
-static bool settings_open = false;
-void createGUI()
-{
-   if (ImGui::BeginMainMenuBar())
-   {
-      if (ImGui::BeginMenu("File"))
-      {
-         if (ImGui::MenuItem("Settings"))
-         {
-            settings_open = true;
-         }
-         ImGui::EndMenu();
-      }
-      if (ImGui::Checkbox("Mute", &mute))
-      {
-         app_state->webcams[0]->muteAudioPlayback(mute);
-         Settings::setMute(mute);
-      }
-      ImGui::EndMainMenuBar();
-   }
-   if (settings_open)
-   {
-      ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_FirstUseEver);
-      ImGui::Begin("Settings", &settings_open, 0);
-      ImGui::Text("Save Directory");
-      if (ImGui::InputText("##Save Directory", save_dir, sizeof(save_dir)))
-      {
-         Settings::setSaveDir(std::string(save_dir));
-      }
-      for(int i = 0; i < app_state->camera_count; i++)
-      {
-          ImGui::Text("Camera " + 1);
-   //       ImGui::
-        
-      }
-      ImGui::End();
-   }
-   for (int i = 0; i < app_state->camera_count; i++)
-   {
-      ImGui::Begin("Camera " + i);
-
-      ImVec2 pos = ImGui::GetWindowPos();
-      ImVec2 size = ImGui::GetWindowSize();
-
-      ImGui::Text("window pos %.1f %.1f", pos.x, pos.y);
-      ImGui::Text("window size %.1f %.1f", size.x, size.y);
-
-      ImVec2 avail = ImGui::GetContentRegionAvail();
-      if (avail.x > 1.0f && avail.y > 1.0f && app_state != NULL && app_state->cam_textures[i] != NULL)
-      {
-         float videoAspect = static_cast<float>(app_state->width) / static_cast<float>(app_state->height);
-         float availAspect = avail.x / avail.y;
-
-         ImVec2 imageSize = avail;
-         if (availAspect > videoAspect)
-         {
-            imageSize.x = avail.y * videoAspect;
-         }
-         else
-         {
-            imageSize.y = avail.x / videoAspect;
-         }
-
-         float xOffset = (avail.x - imageSize.x) * 0.5f;
-         float yOffset = (avail.y - imageSize.y) * 0.5f;
-         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xOffset);
-         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yOffset);
-         ImGui::Image((ImTextureID)app_state->cam_textures[i], imageSize);
-      }
-
-      ImGui::End();
-   }
-}
-
 void getCardAndDevice(const char *pcm_string, int *card, int *device)
 {
    const char *pcm = pcm_string;

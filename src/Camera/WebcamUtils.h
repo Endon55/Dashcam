@@ -3,6 +3,11 @@
 #include <linux/videodev2.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <ctime>
+#include <alsa/asoundlib.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <libudev.h>
@@ -16,43 +21,22 @@ extern "C"
 
 #include <spdlog/spdlog.h>
 #include "../Utils.h"
-#include "../Config.h"
+#include "Camera.h"
 
 const char dev[] = "/dev/videoX";
 const int dev_len = 11;
 const int MAX_CAMS = 10;
 const int MAX_CAP_MODES = 100;
 
-struct capture_mode
-{
-    int width = 0;
-    int height = 0;
-    unsigned int pixelFormat = 0;
-    double fps = 0.0;
-};
-
-struct cam_device
-{
-    const char *usbPath;
-    const char *videoPath;
-    const char *audioPath;
-    const int *audioCard;
-    const int *audioDevice;
-    const char *manufacturer;
-    const char *product;
-    const char *vendorID;
-    const char *productID;
-    const char *serialNumber;
-
-    const capture_mode *cap_modes;
-    const int *nb_cap_modes;
-};
-
 static const char *soundValidation = "/dev/snd/pcm";
+
+
 
 int xioctl(int fd, int request, void *arg);
 
 const char *getDeviceName(int index);
+
+int query_all_capture_modes(capture_mode **cap_modes, int *count, cam_device usb_camera);
 
 int query_all_webcams(cam_device **cameras, int *nb_of_cameras);
 
@@ -66,6 +50,6 @@ double get_highest_fps(int fd, uint32_t pixelFormat, int width, int height);
 
 int capture_mode_score(int width, int height, uint32_t pixelFormat, double fps);
 
-capture_mode probeBestCaptureMode(const char *devicePath);
+char *getAudioHW(int card, int device);
 
-char* getAudioHW(int card, int device);
+

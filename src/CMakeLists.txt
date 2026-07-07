@@ -16,7 +16,11 @@ Config.h
 Config.cpp
 FileIO.h
 FileIO.cpp
-Utils.cpp)
+Utils.h
+Utils.cpp
+State.h
+UI.h
+UI.cpp)
 
 
 add_library(source ${sources})
