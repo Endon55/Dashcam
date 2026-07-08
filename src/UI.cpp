@@ -1,8 +1,11 @@
 #include "UI.h"
 #include <format>
 #include <string>
+#include <imgui_internal.h>
 
 static bool settings_open = false;
+static bool settings_modified = false;
+static bool cam_config_modified = false;
 void createGUI(AppState *app_state)
 {
    if (ImGui::BeginMainMenuBar())
@@ -12,6 +15,8 @@ void createGUI(AppState *app_state)
          if (ImGui::MenuItem("Settings"))
          {
             settings_open = true;
+            settings_modified = false;
+            cam_config_modified = false;
          }
          ImGui::EndMenu();
       }
@@ -64,13 +69,7 @@ void createGUI(AppState *app_state)
    }
 }
 
-static int nb_of_modes = 0;
-static int selected_index = 0;
-static int selected_fmt = 0;
-static int selected_fps = 0;
-static int selected_res = 0;
-static capture_mode* selected_mode;
-static char* selected_fmt_ptr;
+const capture_mode* new_mode;
 static vector<const capture_mode*> selected_modes(MAX_CAMS);
 bool create_dropdown_entry(cam_device* device, int index)
 {
@@ -80,13 +79,10 @@ bool create_dropdown_entry(cam_device* device, int index)
         selected_modes[index] = device->default_mode;
     }
     const bool is_selected = false; 
-    snprintf((char*)&cam_name, sizeof(cam_name), "Camera %d", index);
-    ImGui::Text(cam_name);
+    ImGui::Text("Camera %d", index);
 
-    //create 3 dropdowns that filter left to right - Pixel Format -> FPS -> resolution
-    //
 
-std::map<const char* , std::map<double, std::vector<const capture_mode*>>> sorted_modes = Utils::decompose_capture_modes(device->cap_modes, *device->nb_cap_modes); 
+    std::map<const char* , std::map<double, std::vector<const capture_mode*>>> sorted_modes = Utils::decompose_capture_modes(device->cap_modes, *device->nb_cap_modes); 
     
     int i = 0;
     if(ImGui::BeginCombo("Format", selected_modes[index]->pixelFmtStr))
@@ -96,12 +92,17 @@ std::map<const char* , std::map<double, std::vector<const capture_mode*>>> sorte
             ImGui::PushID(i);
             if(ImGui::Selectable(format, is_selected))
             {
-                selected_modes[index] = fps_map.begin()->second[0];
+               new_mode = fps_map.begin()->second[0];
+               if(new_mode != selected_modes[index])
+               {
+                        selected_modes[index] = new_mode;
+                        settings_modified = true;
+               }
             }
             ImGui::PopID();
         }
 
-    ImGui::EndCombo();
+        ImGui::EndCombo();
     }
     i = 0;
     if(ImGui::BeginCombo("FPS", Utils::double_to_str(selected_modes[index]->fps)))
@@ -112,34 +113,41 @@ std::map<const char* , std::map<double, std::vector<const capture_mode*>>> sorte
             ImGui::PushID(i);
             if(ImGui::Selectable(Utils::double_to_str(fps)), is_selected)
             {
-                selected_modes[index] = resolutions[0];
+                new_mode = resolutions[0];
+                if(new_mode != selected_modes[index])
+                {
+                    selected_modes[index] = new_mode;
+                    settings_modified = true;
+                }
             }
             ImGui::PopID();
         }
 
-    ImGui::EndCombo();
+        ImGui::EndCombo();
     }
     if(ImGui::BeginCombo("Resolution", Utils::resolution_to_str(selected_modes[index]->width, selected_modes[index]->height)))
     {
-       vector<const capture_mode*> vec = sorted_modes.at(selected_modes[index]->pixelFmtStr).at(selected_modes[index]->fps);
+        vector<const capture_mode*> vec = sorted_modes.at(selected_modes[index]->pixelFmtStr).at(selected_modes[index]->fps);
 
-       for(int j = 0; j < vec.size(); j++)         {
+        for(int j = 0; j < vec.size(); j++)         {
             ImGui::PushID(j);
             if(ImGui::Selectable(Utils::resolution_to_str(vec[j]->width, vec[j]->height), is_selected))
             {
-                selected_modes[index] = vec[j];
+                new_mode = vec[j];
+                if(new_mode != selected_modes[index])
+                {
+                    selected_modes[index] = new_mode;
+                    settings_modified = true;
+               }
             }
             ImGui::PopID();
         }
 
-    ImGui::EndCombo();
+        ImGui::EndCombo();
     }
     
-
-
-    
     ImGui::PopID();
-   return true; 
+    return true; 
 
 }
 void createSettingsMenu(AppState *app_state)
@@ -156,8 +164,41 @@ void createSettingsMenu(AppState *app_state)
     {  
         if(create_dropdown_entry(app_state->devices[i], i))
         {
-
+            
         }
+    }
+
+    
+    if(settings_modified || cam_config_modified)
+    {
+        ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+    }
+    if(ImGui::Button("Save"))
+    {
+        if(settings_modified)
+        {
+            //save settigns file
+        }
+        if(cam_config_modified)
+        {
+            for(int i = 0; i < app_state->camera_count; i++)
+            {
+                app_state->devices[i]->default_mode = selected_modes[i];
+            }
+            //save cam_config file
+        }
+
+        settings_open = false;
+    }
+    if(settings_modified || cam_config_modified)
+    {
+        ImGui::PopItemFlag();
+        ImGui::PopStyleVar();
+    }
+    if(ImGui::Button("Close"))
+    {
+        
     }
     ImGui::End();
 }
