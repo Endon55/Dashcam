@@ -88,6 +88,7 @@ int main(int argc, char **argv)
    webcams = new Webcam*[app_state->camera_count];
    app_state->cam_textures = (SDL_Texture**)malloc(sizeof(SDL_Texture*) * app_state->camera_count); 
    spdlog::debug("Save Dir: {}", Settings::getVideoSaveDir().string());
+    app_state->webcams = webcams;
    // return 0;
    for (int i = 0; i < app_state->camera_count; i++)
    {

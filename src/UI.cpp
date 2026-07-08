@@ -1,4 +1,6 @@
 #include "UI.h"
+#include <format>
+#include <string>
 
 static bool settings_open = false;
 void createGUI(AppState *app_state)
@@ -62,11 +64,84 @@ void createGUI(AppState *app_state)
    }
 }
 
-static capture_mode** setting_modes = (capture_mode**)malloc(sizeof(capture_mode*) * MAX_CAP_MODES);
-static char** modes_raw = (char**)malloc(sizeof(char*) * MAX_CAP_MODES);
 static int nb_of_modes = 0;
 static int selected_index = 0;
+static int selected_fmt = 0;
+static int selected_fps = 0;
+static int selected_res = 0;
+static capture_mode* selected_mode;
+static char* selected_fmt_ptr;
+static vector<const capture_mode*> selected_modes(MAX_CAMS);
+bool create_dropdown_entry(cam_device* device, int index)
+{
+    ImGui::PushID(index);
+    if(selected_modes[index] == NULL)
+    {
+        selected_modes[index] = device->default_mode;
+    }
+    const bool is_selected = false; 
+    snprintf((char*)&cam_name, sizeof(cam_name), "Camera %d", index);
+    ImGui::Text(cam_name);
 
+    //create 3 dropdowns that filter left to right - Pixel Format -> FPS -> resolution
+    //
+
+std::map<const char* , std::map<double, std::vector<const capture_mode*>>> sorted_modes = Utils::decompose_capture_modes(device->cap_modes, *device->nb_cap_modes); 
+    
+    int i = 0;
+    if(ImGui::BeginCombo("Format", selected_modes[index]->pixelFmtStr))
+    {
+        for(auto &[format, fps_map] : sorted_modes)
+        {
+            ImGui::PushID(i);
+            if(ImGui::Selectable(format, is_selected))
+            {
+                selected_modes[index] = fps_map.begin()->second[0];
+            }
+            ImGui::PopID();
+        }
+
+    ImGui::EndCombo();
+    }
+    i = 0;
+    if(ImGui::BeginCombo("FPS", Utils::double_to_str(selected_modes[index]->fps)))
+    {
+        
+        for(auto &[fps, resolutions] : sorted_modes.at(selected_modes[index]->pixelFmtStr))
+        {
+            ImGui::PushID(i);
+            if(ImGui::Selectable(Utils::double_to_str(fps)), is_selected)
+            {
+                selected_modes[index] = resolutions[0];
+            }
+            ImGui::PopID();
+        }
+
+    ImGui::EndCombo();
+    }
+    if(ImGui::BeginCombo("Resolution", Utils::resolution_to_str(selected_modes[index]->width, selected_modes[index]->height)))
+    {
+       vector<const capture_mode*> vec = sorted_modes.at(selected_modes[index]->pixelFmtStr).at(selected_modes[index]->fps);
+
+       for(int j = 0; j < vec.size(); j++)         {
+            ImGui::PushID(j);
+            if(ImGui::Selectable(Utils::resolution_to_str(vec[j]->width, vec[j]->height), is_selected))
+            {
+                selected_modes[index] = vec[j];
+            }
+            ImGui::PopID();
+        }
+
+    ImGui::EndCombo();
+    }
+    
+
+
+    
+    ImGui::PopID();
+   return true; 
+
+}
 void createSettingsMenu(AppState *app_state)
 {
 
@@ -79,30 +154,11 @@ void createSettingsMenu(AppState *app_state)
     }
     for(int i = 0; i < app_state->camera_count; i++)
     {  
-        const bool is_selected = (selected_index == i);
-        snprintf((char*)&cam_name, sizeof(cam_name), "Camera %d", i);
-        ImGui::Text(cam_name);
-
-        //create 3 dropdowns that filter left to right - Pixel Format -> FPS -> resolution
-        //
-        if(ImGui::BeginCombo("Format", fourcc_to_str(app_state->devices[i]->default_mode->pixelFormat)))
+        if(create_dropdown_entry(app_state->devices[i], i))
         {
-            for(int j = 0; j < (*app_state->devices[i]->nb_cap_modes); j++)
-            {
-                  
-            }
 
-
-            for(int j = 0; j < nb_of_modes; j++)
-            {
-                if(ImGui::Selectable(fourcc_to_str(setting_modes[j]->pixelFormat)))
-                {
-                   selected_index = j; 
-                }
-
-            }
         }
-
     }
     ImGui::End();
 }
+
