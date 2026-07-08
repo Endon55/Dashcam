@@ -1,120 +1,5 @@
 #include "WebcamUtils.h"
-
-
-
-int query_all_capture_modes(capture_mode **cap_modes, int *count, cam_device usb_camera)
-{
-    int fd = open(usb_camera.videoPath, O_RDWR | O_NONBLOCK);
-    if (fd < 0)
-    {
-        return -1;
-    }
-    struct v4l2_capability *camcap = (v4l2_capability *)malloc(sizeof(v4l2_capability));
-    int ret = xioctl(fd, VIDIOC_QUERYCAP, camcap);
-    if (ret < 0)
-    {
-        spdlog::critical("Xioctl Failed: {}", strerror(errno));
-        free(camcap);
-        close(fd);
-        return -1;
-    }
-
-    *count = 0;
-    if (fd < 0 || cap_modes == nullptr || count == nullptr)
-    {
-        spdlog::critical("Invalid device handle provided");
-        free(camcap);
-        close(fd);
-        return -1;
-    }
-
-    *cap_modes = (capture_mode *)malloc(sizeof(capture_mode) * MAX_CAP_MODES);
-    if (*cap_modes == nullptr)
-    {
-        spdlog::critical("Failed to allocate capture mode buffer");
-        free(camcap);
-        close(fd);
-        return -1;
-    }
-
-    v4l2_fmtdesc fmtDesc = {};
-    fmtDesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    spdlog::debug("Finding all capture modes");
-    while (ioctl(fd, VIDIOC_ENUM_FMT, &fmtDesc) == 0)
-    {
-        //spdlog::debug("Description: {}", (char *)fmtDesc.description);
-        const char *input_fmt = fourcc_to_str(fmtDesc.pixelformat);
-        if (input_fmt == NULL)
-        {
-            spdlog::critical("Couldnt parse the v4l2 pixel format.");
-            fmtDesc.index++;
-            continue;
-        }
-        //spdlog::debug("Index: {}, Type: {:x}, Pixel Format: {}", fmtDesc.index, fmtDesc.type, input_fmt);
-
-        v4l2_frmsizeenum frameSize = {};
-        frameSize.pixel_format = fmtDesc.pixelformat;
-        // Each loop enumerates another frame option.
-        while (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frameSize) == 0)
-        {
-            int width = 0;
-            int height = 0;
-
-            if (frameSize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
-            {
-                width = static_cast<int>(frameSize.discrete.width);
-                height = static_cast<int>(frameSize.discrete.height);
-            }
-            else if (frameSize.type == V4L2_FRMSIZE_TYPE_STEPWISE || frameSize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS)
-            {
-                width = static_cast<int>(frameSize.stepwise.max_width);
-                height = static_cast<int>(frameSize.stepwise.max_height);
-            }
-
-            if (width > 0 && height > 0)
-            {
-                if (*count >= MAX_CAP_MODES)
-                {
-                    spdlog::warn("Capture mode buffer is full; stopping enumeration");
-                    return 0;
-                }
-
-                (*cap_modes)[*count].fps = get_highest_fps(fd, fmtDesc.pixelformat, width, height);
-                (*cap_modes)[*count].width = width;
-                (*cap_modes)[*count].height = height;
-                (*cap_modes)[*count].pixelFormat = fmtDesc.pixelformat;
-                //spdlog::debug("PixFmt: {}, Width: {}, Height: {}, FPS: {}", (*cap_modes)[*count].pixelFormat, (*cap_modes)[*count].width, (*cap_modes)[*count].height, (*cap_modes)[*count].fps);
-
-                (*count)++;
-            }
-
-            frameSize.index++;
-        }
-
-        fmtDesc.index++;
-    }
-
-    free(camcap);
-    close(fd);
-    return 0;
-}
-
-AVPixelFormat canonicalizePixelFormat(AVPixelFormat pixelFormat)
-{
-    switch (pixelFormat)
-    {
-    case AV_PIX_FMT_YUVJ420P:
-        return AV_PIX_FMT_YUV420P;
-    case AV_PIX_FMT_YUVJ422P:
-        return AV_PIX_FMT_YUV422P;
-    case AV_PIX_FMT_YUVJ444P:
-        return AV_PIX_FMT_YUV444P;
-    case AV_PIX_FMT_YUVJ440P:
-        return AV_PIX_FMT_YUV440P;
-    default:
-        return pixelFormat;
-    }
-}
+#include "../Config.h"
 
 int sourceColorRangeForFrame(const AVFrame *frame)
 {
@@ -279,12 +164,129 @@ const char *getDeviceName(int index)
     return device;
 }
 
-int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
+int query_all_capture_modes(AppState* state) {
+    int ret = 0;
+
+    for (int i = 0; i < state->camera_count; i++)
+    {
+        cam_device* device = state->devices[i];
+        cam_config* config = Config::get_cam_config(state, device);
+
+        if(config == NULL)
+        {
+            spdlog::debug("No Cached config found, querying the device");
+            ret = query_capture_modes(device);
+            if (ret < 0)
+            {
+                spdlog::critical("Failed to query the capture modes");
+                return ret;
+            }
+        }
+        else{
+            device->default_mode = config->default_mode;
+            device->default_mode = config->cap_modes;
+            device->nb_cap_modes = config->nb_cap_modes;
+        }
+        spdlog::debug("Camera: {}", i);
+        Utils::log_cap_mode(state->devices[i]->default_mode);
+
+    }
+    return 0;
+}
+int query_capture_modes(cam_device* device)
+{
+    int count = 0;
+    int fd = open(device->videoPath, O_RDWR | O_NONBLOCK); if (fd < 0)
+    {
+        return -1;
+    }
+    struct v4l2_capability *camcap = (v4l2_capability *)malloc(sizeof(v4l2_capability));
+    int ret = xioctl(fd, VIDIOC_QUERYCAP, camcap);
+    if (ret < 0)
+    {
+        spdlog::critical("Xioctl Failed: {}", strerror(errno));
+        free(camcap);
+        close(fd);
+        return -1;
+    }
+
+
+
+    device->cap_modes = (const capture_mode**)malloc(sizeof(capture_mode*) * MAX_CAP_MODES);
+
+    v4l2_fmtdesc fmtDesc = {};
+    fmtDesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    spdlog::debug("Finding all capture modes");
+    while (ioctl(fd, VIDIOC_ENUM_FMT, &fmtDesc) == 0)
+    {
+        //spdlog::debug("Description: {}", (char *)fmtDesc.description);
+        const char *input_fmt = fourcc_to_str(fmtDesc.pixelformat);
+        if (input_fmt == NULL)
+        {
+            spdlog::critical("Couldnt parse the v4l2 pixel format.");
+            fmtDesc.index++;
+            continue;
+        }
+        //spdlog::debug("Index: {}, Type: {:x}, Pixel Format: {}", fmtDesc.index, fmtDesc.type, input_fmt);
+
+        v4l2_frmsizeenum frameSize = {};
+        frameSize.pixel_format = fmtDesc.pixelformat;
+        // Each loop enumerates another frame option.
+        while (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frameSize) == 0)
+        {
+
+            capture_mode* mode = (capture_mode*)malloc(sizeof(capture_mode));
+
+            if(fmtDesc.pixelformat == V4L2_PIX_FMT_MJPEG)
+            {
+                device->default_mode = mode;
+            }
+
+
+            if (frameSize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
+            {
+                mode->width = static_cast<int>(frameSize.discrete.width);
+                mode->height = static_cast<int>(frameSize.discrete.height);
+            }
+            else if (frameSize.type == V4L2_FRMSIZE_TYPE_STEPWISE || frameSize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS)
+            {
+                mode->width = static_cast<int>(frameSize.stepwise.max_width);
+                mode->height = static_cast<int>(frameSize.stepwise.max_height);
+            }
+
+            if (mode->width > 0 && mode->height > 0)
+            {
+                if (count >= MAX_CAP_MODES)
+                {
+                    spdlog::warn("Capture mode buffer is full; stopping enumeration");
+                    return 0;
+                }
+
+                mode->fps = get_highest_fps(fd, fmtDesc.pixelformat, mode->width, mode->height);
+                mode->pixelFormat = fmtDesc.pixelformat;
+                mode->pixelFmtStr = fourcc_to_str(mode->pixelFormat);
+                
+                device->cap_modes[count] = mode;    
+                count++;
+            }
+
+            frameSize.index++;
+        }
+
+        fmtDesc.index++;
+    }
+    device->nb_cap_modes = new int(count);
+    free(camcap);
+    close(fd);
+    return 0;
+
+}
+
+int query_all_webcams(AppState* state)
 {
 
     int ret = 0;
-    cam_device *usb_cameras = (cam_device *)malloc(sizeof(cam_device) * MAX_CAMS);
-    *cameras = usb_cameras;
+    state->devices = (cam_device **)malloc(sizeof(cam_device*) * MAX_CAMS);
     int nb_usb_cameras = 0;
 
     udev *udev;
@@ -317,8 +319,8 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
     const char *productID;
     const char *serialNumber;
     const char *test;
-    const int *card_num;
-    const int *device_num;
+    const int  *card_num;
+    const int  *device_num;
 
     /*
        Every webcam has 2 dev/video0 inputs, because the second one is used for camera meta-data. We simply skip every other option.
@@ -397,74 +399,61 @@ int query_all_webcams(cam_device **cameras, int *nb_of_cameras)
                 spdlog::critical("No dev/videoX location found, must not be valid???");
             }
 
-            cam_device *device = (usb_cameras + nb_usb_cameras);
 
-            device->usbPath = usbPath;
-            device->videoPath = videoPath;
-            device->audioPath = audioPath;
+ 
+            state->devices[nb_usb_cameras] = (cam_device*)malloc(sizeof(cam_device));
 
-            device->audioCard = card_num;
-            device->audioDevice = device_num;
+            state->devices[nb_usb_cameras]->usbPath = usbPath;
+            state->devices[nb_usb_cameras]->videoPath = videoPath;
+            state->devices[nb_usb_cameras]->audioPath = audioPath;
+            state->devices[nb_usb_cameras]->audioCard = card_num;
+            state->devices[nb_usb_cameras]->audioDevice = device_num;
+            state->devices[nb_usb_cameras]->hw = (const char*)getAudioHW(state->devices[nb_usb_cameras]->audioCard, state->devices[nb_usb_cameras]->audioDevice);
+            state->devices[nb_usb_cameras]->manufacturer = manufacturer;
+            state->devices[nb_usb_cameras]->product = product;
 
-            device->manufacturer = manufacturer;
-            device->product = product;
-
-            device->vendorID = vendorID;
-            device->productID = productID;
-            device->serialNumber = serialNumber;
+            state->devices[nb_usb_cameras]->vendorID = vendorID;
+            state->devices[nb_usb_cameras]->productID = productID;
+            state->devices[nb_usb_cameras]->serialNumber = serialNumber;
             nb_usb_cameras++;
+
+
         }
 
         metadata = !metadata;
     }
+    
+    cam_device* cam;
     spdlog::debug("Number of Cameras: {}", nb_usb_cameras);
     for (int i = 0; i < nb_usb_cameras; i++)
     {
         spdlog::debug("Camera - {}", i);
 
-        cam_device cam = usb_cameras[i];
-        spdlog::debug("   USB Path:      {}", cam.usbPath);
-        spdlog::debug("   Video Path:      {}", cam.videoPath);
-        spdlog::debug("   Audio Path:      {}", cam.audioPath);
-        spdlog::debug("   Card Number:      {}", *cam.audioCard);
-        spdlog::debug("   Device Number:      {}", *cam.audioDevice);
-        spdlog::debug("   Manufacturer:  {}", Utils::str_or_default(cam.manufacturer, "[none]"));
-        spdlog::debug("   Product        {}", Utils::str_or_default(cam.product, "[none]"));
-        spdlog::debug("   Vendor ID:     {}", Utils::str_or_default(cam.vendorID, "[none]"));
-        spdlog::debug("   Product ID:    {}", Utils::str_or_default(cam.productID, "[none]"));
-        spdlog::debug("   Serial Number: {}", Utils::str_or_default(cam.serialNumber, "[none]"));
+        cam = state->devices[i];
+        spdlog::debug("   USB Path:      {}", cam->usbPath);
+        spdlog::debug("   Video Path:      {}", cam->videoPath);
+        spdlog::debug("   Audio Path:      {}", cam->audioPath);
+        spdlog::debug("   Card Number:      {}", *cam->audioCard);
+        spdlog::debug("   Device Number:      {}", *cam->audioDevice);
+        spdlog::debug("   Manufacturer:  {}", Utils::str_or_default(cam->manufacturer, "[none]"));
+        spdlog::debug("   Product        {}", Utils::str_or_default(cam->product, "[none]"));
+        spdlog::debug("   Vendor ID:     {}", Utils::str_or_default(cam->vendorID, "[none]"));
+        spdlog::debug("   Product ID:    {}", Utils::str_or_default(cam->productID, "[none]"));
+        spdlog::debug("   Serial Number: {}", Utils::str_or_default(cam->serialNumber, "[none]"));
     }
-
-    for (int i = 0; i < nb_usb_cameras; i++)
-    {
-        capture_mode *cap_modes;
-        int *nb_of_cap_modes = new int(0);
-
-        ret = query_all_capture_modes(&cap_modes, nb_of_cap_modes, usb_cameras[i]);
-        if (ret < 0)
-        {
-            spdlog::critical("Failed to query the capture modes");
-        }
-        usb_cameras[i].cap_modes = cap_modes;
-        usb_cameras[i].nb_cap_modes = nb_of_cap_modes;
-        spdlog::critical("Cap Modes: {}", *nb_of_cap_modes);
-    }
-
-    //cam_config *configs = merge_cam_structs(nb_usb_cameras, usb_cameras);
-
-    //Config::save_cam_config(nb_usb_cameras, configs);
-
-    *nb_of_cameras = nb_usb_cameras;
+    state->camera_count = nb_usb_cameras;
     return 0;
 }
 
 // PlugHW is the alternate mode but I dont think I care about that.
-char *getAudioHW(int card, int device)
+char *getAudioHW(const int* card, const int* device)
 {
     char *hw = (char*)malloc(sizeof(char) * 12);
 
-    snprintf(hw, sizeof(hw), "hw:%d,%d", card, device);
+    snprintf(hw, sizeof(hw), "hw:%d,%d", *card, *device);
     spdlog::debug("AudioHW: {}", hw);
 
     return std::move(hw);
 }
+
+

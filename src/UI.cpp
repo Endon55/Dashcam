@@ -61,6 +61,12 @@ void createGUI(AppState *app_state)
       ImGui::End();
    }
 }
+
+static capture_mode** setting_modes = (capture_mode**)malloc(sizeof(capture_mode*) * MAX_CAP_MODES);
+static char** modes_raw = (char**)malloc(sizeof(char*) * MAX_CAP_MODES);
+static int nb_of_modes = 0;
+static int selected_index = 0;
+
 void createSettingsMenu(AppState *app_state)
 {
 
@@ -72,10 +78,31 @@ void createSettingsMenu(AppState *app_state)
        Settings::setSaveDir(std::string(save_dir));
     }
     for(int i = 0; i < app_state->camera_count; i++)
-    {   
+    {  
+        const bool is_selected = (selected_index == i);
         snprintf((char*)&cam_name, sizeof(cam_name), "Camera %d", i);
         ImGui::Text(cam_name);
+
         //create 3 dropdowns that filter left to right - Pixel Format -> FPS -> resolution
+        //
+        if(ImGui::BeginCombo("Format", fourcc_to_str(app_state->devices[i]->default_mode->pixelFormat)))
+        {
+            for(int j = 0; j < (*app_state->devices[i]->nb_cap_modes); j++)
+            {
+                  
+            }
+
+
+            for(int j = 0; j < nb_of_modes; j++)
+            {
+                if(ImGui::Selectable(fourcc_to_str(setting_modes[j]->pixelFormat)))
+                {
+                   selected_index = j; 
+                }
+
+            }
+        }
+
     }
     ImGui::End();
 }

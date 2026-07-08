@@ -13,7 +13,7 @@
 
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
 #include <spdlog/spdlog.h>
-
+#include "Camera/Camera.h"
 #include "Camera/Webcam.h"
 #include "Camera/WebcamUtils.h"
 #include "Window.h"
@@ -40,21 +40,16 @@ int main(int argc, char **argv)
    */
    av_log_set_level(AV_LOG_FATAL);
    spdlog::set_level(spdlog::level::debug);
-   Config::load_cam_config();
    Settings::load();
    mute = Settings::isMuted();
    Settings::getVideoSaveDir().string().copy(save_dir, sizeof(save_dir));
    bool any_has_audio = false;
-
-   struct capture_mode cap_mode = {640, 480, V4L2_PIX_FMT_MJPEG, 30.0f};
 
    int ret = 0;
    int exitCode = 0;
    unsigned int count = 1000;
    bool sdlInitialized = false;
    bool show_demo_window = true;
-
-   int nb_of_cams = 0;
 
    app_state = (AppState *)calloc(1, sizeof(AppState));
    if (app_state == NULL)
@@ -66,9 +61,7 @@ int main(int argc, char **argv)
    *app_state = (AppState){
        .width = 0,
        .height = 0};
-   cam_device *cam_devices;
-   ret = query_all_webcams(&cam_devices, &nb_of_cams);
-   app_state->camera_count = nb_of_cams;
+   ret = query_all_webcams(app_state);
    if (ret < 0)
    {
       spdlog::critical("Failed to query for all webcams");
@@ -76,27 +69,36 @@ int main(int argc, char **argv)
       goto cleanup;
    }
 
-   if (nb_of_cams <= 0)
+   if (app_state->camera_count <= 0)
    {
       spdlog::critical("No webcams were detected");
       exitCode = -1;
       goto cleanup;
    }
+   ret = Config::load_cam_config(app_state);
+   if(ret < 0)
+   {
+        spdlog::critical("Failed to load cam config");
+        return ret;
+   }
+   ret = query_all_capture_modes(app_state);
 
-   app_state->webcams = new Webcam*[nb_of_cams];
-   app_state->cam_textures = (SDL_Texture**)malloc(sizeof(SDL_Texture*) * nb_of_cams); 
+    Webcam** webcams;
+
+   webcams = new Webcam*[app_state->camera_count];
+   app_state->cam_textures = (SDL_Texture**)malloc(sizeof(SDL_Texture*) * app_state->camera_count); 
    spdlog::debug("Save Dir: {}", Settings::getVideoSaveDir().string());
    // return 0;
-   for (int i = 0; i < nb_of_cams; i++)
+   for (int i = 0; i < app_state->camera_count; i++)
    {
-      app_state->webcams[i] = new Webcam(cam_devices + i,  &cap_mode);
-      ret = app_state->webcams[i]->init(i);
+      webcams[i] = new Webcam(app_state->devices[i]);
+      ret = webcams[i]->init(i);
       if (ret < 0)
       {
          exitCode = ret;
          goto cleanup;
       }
-      any_has_audio = app_state->webcams[i]->has_audio;
+      any_has_audio = webcams[i]->has_audio;
    }
 
    // app_state->width = webcams[0]->video.codecContext->width;
@@ -110,7 +112,7 @@ int main(int argc, char **argv)
    }
    if (any_has_audio)
    {
-      ret = sdl_load_audio_spec(app_state->audio_spec, app_state->webcams[0]->audio.codecContext);
+      ret = sdl_load_audio_spec(app_state->audio_spec, webcams[0]->audio.codecContext);
       if (ret < 0)
       {
          exitCode = ret;
@@ -125,18 +127,18 @@ int main(int argc, char **argv)
    }
    sdlInitialized = true;
 
-   for (int i = 0; i < nb_of_cams; i++)
+   for (int i = 0; i < app_state->camera_count; i++)
    {
-      app_state->cam_textures[i] = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, app_state->webcams[i]->video.codecContext->width, app_state->webcams[i]->video.codecContext->height);
+      app_state->cam_textures[i] = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, webcams[i]->video.codecContext->width, webcams[i]->video.codecContext->height);
 
       if (app_state->cam_textures[i] == NULL)
       {
          spdlog::critical("Couldn't create texture[{}]: {}", i, SDL_GetError());
          goto cleanup;
       }
-      if (app_state->webcams[i]->has_audio)
+      if (webcams[i]->has_audio)
       {
-         ret = app_state->webcams[i]->startAudioCapture(app_state->audio_stream);
+         ret = webcams[i]->startAudioCapture(app_state->audio_stream);
          if (ret < 0)
          {
             exitCode = ret;
@@ -165,9 +167,9 @@ int main(int argc, char **argv)
       ImGui::NewFrame();
 
       createGUI(app_state);
-      for (int i = 0; i < nb_of_cams; i++)
+      for (int i = 0; i < app_state->camera_count; i++)
       {
-         ret = app_state->webcams[i]->processVideoFrame(app_state->cam_textures[i]);
+         ret = webcams[i]->processVideoFrame(app_state->cam_textures[i]);
          if (ret < 0)
          {
             exitCode = ret;
@@ -196,55 +198,55 @@ int main(int argc, char **argv)
 cleanup:
    Settings::save();
 
-   for (int i = 0; i < nb_of_cams; i++)
+   for (int i = 0; i < app_state->camera_count; i++)
    {
-      if (cam_devices[i].usbPath != NULL)
+      if (app_state->devices[i]->usbPath != NULL)
       {
-         free((void *)cam_devices[i].usbPath);
+         free((void *)app_state->devices[i]->usbPath);
       }
-      if (cam_devices[i].videoPath != NULL)
+      if (app_state->devices[i]->videoPath != NULL)
       {
-         free((void *)cam_devices[i].videoPath);
+         free((void *)app_state->devices[i]->videoPath);
       }
-      if (cam_devices[i].audioPath != NULL)
+      if (app_state->devices[i]->audioPath != NULL)
       {
-         free((void *)cam_devices[i].audioPath);
+         free((void *)app_state->devices[i]->audioPath);
       }
-      if (cam_devices[i].audioCard != NULL)
+      if (app_state->devices[i]->audioCard != NULL)
       {
-         free((void *)cam_devices[i].audioCard);
+         free((void *)app_state->devices[i]->audioCard);
       }
-      if (cam_devices[i].audioDevice != NULL)
+      if (app_state->devices[i]->audioDevice != NULL)
       {
-         free((void *)cam_devices[i].audioDevice);
+         free((void *)app_state->devices[i]->audioDevice);
       }
-      if (cam_devices[i].manufacturer != NULL)
+      if (app_state->devices[i]->manufacturer != NULL)
       {
-         free((void *)cam_devices[i].manufacturer);
+         free((void *)app_state->devices[i]->manufacturer);
       }
-      if (cam_devices[i].product != NULL)
+      if (app_state->devices[i]->product != NULL)
       {
-         free((void *)cam_devices[i].product);
+         free((void *)app_state->devices[i]->product);
       }
-      if (cam_devices[i].vendorID != NULL)
+      if (app_state->devices[i]->vendorID != NULL)
       {
-         free((void *)cam_devices[i].vendorID);
+         free((void *)app_state->devices[i]->vendorID);
       }
-      if (cam_devices[i].productID != NULL)
+      if (app_state->devices[i]->productID != NULL)
       {
-         free((void *)cam_devices[i].productID);
+         free((void *)app_state->devices[i]->productID);
       }
-      if (cam_devices[i].serialNumber != NULL)
+      if (app_state->devices[i]->serialNumber != NULL)
       {
-         free((void *)cam_devices[i].serialNumber);
+         free((void *)app_state->devices[i]->serialNumber);
       }
    }
 
-   for (int i = 0; i < nb_of_cams; i++)
+   for (int i = 0; i < app_state->camera_count; i++)
    {
-      if (app_state->webcams[i] != NULL)
+      if (webcams[i] != NULL)
       {
-        app_state->webcams[i]->close();
+        webcams[i]->close();
       }
    }
    if (app_state != NULL)

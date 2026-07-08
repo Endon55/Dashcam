@@ -3,6 +3,8 @@
 #include <imgui.h>
 #include "State.h"
 #include "Camera/Camera.h"
+#include "Camera/WebcamUtils.h"
+#include "Settings.h"
 
 static bool mute = true;
 static char save_dir[64];

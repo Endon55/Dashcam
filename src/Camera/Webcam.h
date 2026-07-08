@@ -13,6 +13,7 @@
 #include <cstring>
 #include <string>
 #include <fcntl.h>
+#include <alsa/asoundlib.h>
 
 
 
@@ -39,11 +40,10 @@ extern "C"
 #include "Macros.h"
 #include "Muxor.h"
 #include "../Settings.h"
-#include "../Utils.h"
-#include "WebcamUtils.h"
 #include "Camera.h"
-
 using namespace std;
+
+
 
 struct Video
 {
@@ -84,13 +84,12 @@ class Webcam
 public:
     struct Video video;
     struct Audio audio;
-    struct cam_device *camera;
-    struct capture_mode *cap_mode;
+    struct cam_device *device;
     Muxor *muxor;
     const bool has_audio;
 
 public:
-    Webcam(cam_device *camera, capture_mode *cap_mode);
+    Webcam(cam_device *camera);
     int init(int camIndex);
     int close();
     int processVideoFrame(SDL_Texture *texture);
