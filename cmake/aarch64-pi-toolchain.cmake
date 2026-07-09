@@ -6,11 +6,17 @@ set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)
 
 if(NOT DEFINED CMAKE_SYSROOT)
-  set(CMAKE_SYSROOT "${USER}/pi-sysroot" CACHE PATH "Path to Raspberry Pi sysroot")
+  set(CMAKE_SYSROOT "$ENV{HOME}/pi-sysroot" CACHE PATH "Path to Raspberry Pi sysroot")
 endif()
 
-set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
-set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+# On native ARM64 hosts use system compilers; on non-ARM64 hosts use cross-compilers.
+if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+  set(CMAKE_C_COMPILER gcc)
+  set(CMAKE_CXX_COMPILER g++)
+else()
+  set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+  set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+endif()
 
 # Ensure the compiler/linker uses the sysroot
 set(CMAKE_SYSROOT ${CMAKE_SYSROOT})

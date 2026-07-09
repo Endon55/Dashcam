@@ -4,14 +4,24 @@ cmake_minimum_required(VERSION 3.10)
 
 # Configure vcpkg triplets before project() so toolchain integration
 # picks up the correct host/target values during configure.
+set(_dashcam_host_processor "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+if(_dashcam_host_processor STREQUAL "")
+  execute_process(
+    COMMAND uname -m
+    OUTPUT_VARIABLE _dashcam_host_processor
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+endif()
+
 if(NOT DEFINED VCPKG_HOST_TRIPLET OR VCPKG_HOST_TRIPLET STREQUAL "")
-  if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+  if(_dashcam_host_processor MATCHES "^(x86_64|amd64)$")
     set(_dashcam_host_triplet "x64-linux")
-  elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+  elseif(_dashcam_host_processor MATCHES "^(aarch64|arm64)$")
     set(_dashcam_host_triplet "arm64-linux")
   else()
     message(FATAL_ERROR
-      "Unsupported host architecture '${CMAKE_HOST_SYSTEM_PROCESSOR}'. "
+      "Unsupported host architecture '${_dashcam_host_processor}'. "
       "Set VCPKG_HOST_TRIPLET and VCPKG_TARGET_TRIPLET in your preset.")
   endif()
 
