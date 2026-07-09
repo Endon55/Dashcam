@@ -5,6 +5,9 @@
       "name": "base",
       "hidden": true,
       "generator": "Ninja",
+      "environment": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
+      },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "DBUS_SESSION_SOCKET_DIR": "/tmp"
@@ -39,14 +42,10 @@
       ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release/arm",
-      "environment": {
-        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
-      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
         "CMAKE_SYSROOT": "$env{HOME}/pi-sysroot",
-        "VCPKG_HOST_TRIPLET": "x64-linux",
         "VCPKG_TARGET_TRIPLET": "arm64-linux",
         "CMAKE_C_COMPILER": "aarch64-linux-gnu-gcc",
         "CMAKE_CXX_COMPILER": "aarch64-linux-gnu-g++",
@@ -68,14 +67,10 @@
       ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/debug/arm",
-      "environment": {
-        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
-      },
       "cacheVariables": {
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
         "CMAKE_SYSROOT": "$env{HOME}/pi-sysroot",
         "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_HOST_TRIPLET": "x64-linux",
         "VCPKG_TARGET_TRIPLET": "arm64-linux",
         "CMAKE_C_COMPILER": "aarch64-linux-gnu-gcc",
         "CMAKE_CXX_COMPILER": "aarch64-linux-gnu-g++",

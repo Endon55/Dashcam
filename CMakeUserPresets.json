@@ -3,14 +3,14 @@
   "configurePresets": [
     {
       "name": "host-release",
-      "displayName": "Host Release (x64-linux)",
-      "description": "Build for host machine (x64-linux) in Release mode",
+      "displayName": "Host Release (native)",
+      "description": "Build for the current host machine in Release mode",
       "inherits": "vcpkg"
     },
     {
       "name": "host-debug",
-      "displayName": "Host Debug (x64-linux)",
-      "description": "Build for host machine (x64-linux) in Debug mode",
+      "displayName": "Host Debug (native)",
+      "description": "Build for the current host machine in Debug mode",
       "inherits": "debug"
     },
     {

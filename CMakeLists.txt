@@ -2,14 +2,27 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-set(VCPKG_HOST_TRIPLET "x64-linux")
-# VCPKG_TARGET_TRIPLET is set via CMakePresets.json
-# Default to x64-linux if not specified in preset
-if(NOT VCPKG_TARGET_TRIPLET)
-  set(VCPKG_TARGET_TRIPLET "x64-linux")
+# Configure vcpkg triplets before project() so toolchain integration
+# picks up the correct host/target values during configure.
+if(NOT DEFINED VCPKG_HOST_TRIPLET OR VCPKG_HOST_TRIPLET STREQUAL "")
+  if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+    set(_dashcam_host_triplet "x64-linux")
+  elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    set(_dashcam_host_triplet "arm64-linux")
+  else()
+    message(FATAL_ERROR
+      "Unsupported host architecture '${CMAKE_HOST_SYSTEM_PROCESSOR}'. "
+      "Set VCPKG_HOST_TRIPLET and VCPKG_TARGET_TRIPLET in your preset.")
+  endif()
+
+  set(VCPKG_HOST_TRIPLET "${_dashcam_host_triplet}" CACHE STRING "Host vcpkg triplet")
 endif()
 
-#project(Dashcam)
+if(NOT DEFINED VCPKG_TARGET_TRIPLET OR VCPKG_TARGET_TRIPLET STREQUAL "")
+  set(VCPKG_TARGET_TRIPLET "${VCPKG_HOST_TRIPLET}" CACHE STRING "Target vcpkg triplet")
+endif()
+
+project(Dashcam LANGUAGES C CXX)
 
 
 find_package(fmt CONFIG REQUIRED)
