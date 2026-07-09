@@ -44,20 +44,18 @@ int main(int argc, char **argv)
    mute = Settings::isMuted();
    Settings::getVideoSaveDir().string().copy(save_dir, sizeof(save_dir));
    bool any_has_audio = false;
-
    int ret = 0;
    int exitCode = 0;
    unsigned int count = 1000;
+
    bool sdlInitialized = false;
    bool show_demo_window = true;
-
    app_state = (AppState *)calloc(1, sizeof(AppState));
    if (app_state == NULL)
    {
       exitCode = -1;
       goto cleanup;
    }
-
    *app_state = (AppState){
        .width = 0,
        .height = 0};
@@ -69,28 +67,35 @@ int main(int argc, char **argv)
       goto cleanup;
    }
 
-   if (app_state->camera_count <= 0)
+   if (app_state->nb_cams <= 0)
    {
       spdlog::critical("No webcams were detected");
       exitCode = -1;
       goto cleanup;
    }
-   ret = Config::load_cam_config(app_state);
+   ret = Config::load_cam_configs(app_state);
    if(ret < 0)
    {
         spdlog::critical("Failed to load cam config");
         return ret;
    }
+
+   
    ret = query_all_capture_modes(app_state);
 
-    Webcam** webcams;
+    if(ret < 0)
+    {
+        spdlog::critical("Failed to quary capture modes for webcams");
+        return ret;
+    }
+    Config::save_cam_configs(app_state);
+   Webcam** webcams;
 
-   webcams = new Webcam*[app_state->camera_count];
-   app_state->cam_textures = (SDL_Texture**)malloc(sizeof(SDL_Texture*) * app_state->camera_count); 
+   webcams = new Webcam*[app_state->nb_cams];
+   app_state->cam_textures = (SDL_Texture**)malloc(sizeof(SDL_Texture*) * app_state->nb_cams); 
    spdlog::debug("Save Dir: {}", Settings::getVideoSaveDir().string());
     app_state->webcams = webcams;
-   // return 0;
-   for (int i = 0; i < app_state->camera_count; i++)
+   for (int i = 0; i < app_state->nb_cams; i++)
    {
       webcams[i] = new Webcam(app_state->devices[i]);
       ret = webcams[i]->init(i);
@@ -128,7 +133,7 @@ int main(int argc, char **argv)
    }
    sdlInitialized = true;
 
-   for (int i = 0; i < app_state->camera_count; i++)
+   for (int i = 0; i < app_state->nb_cams; i++)
    {
       app_state->cam_textures[i] = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, webcams[i]->video.codecContext->width, webcams[i]->video.codecContext->height);
 
@@ -168,7 +173,7 @@ int main(int argc, char **argv)
       ImGui::NewFrame();
 
       createGUI(app_state);
-      for (int i = 0; i < app_state->camera_count; i++)
+      for (int i = 0; i < app_state->nb_cams; i++)
       {
          ret = webcams[i]->processVideoFrame(app_state->cam_textures[i]);
          if (ret < 0)
@@ -199,7 +204,7 @@ int main(int argc, char **argv)
 cleanup:
    Settings::save();
 
-   for (int i = 0; i < app_state->camera_count; i++)
+   for (int i = 0; i < app_state->nb_cams; i++)
    {
       if (app_state->devices[i]->usbPath != NULL)
       {
@@ -243,7 +248,7 @@ cleanup:
       }
    }
 
-   for (int i = 0; i < app_state->camera_count; i++)
+   for (int i = 0; i < app_state->nb_cams; i++)
    {
       if (webcams[i] != NULL)
       {

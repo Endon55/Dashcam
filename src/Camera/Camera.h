@@ -1,6 +1,7 @@
 #pragma once
 
-const int MAX_CAP_MODES = 100;
+#define MAX_CAP_MODES 100
+#define MAX_CAMS 10
 
 struct capture_mode
 {
@@ -42,7 +43,7 @@ struct cam_config
     const char *serialNumber;
 
     const capture_mode *default_mode;
-    const struct capture_mode *cap_modes;
+    const capture_mode **cap_modes;
     const int *nb_cap_modes;
 };
 

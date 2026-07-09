@@ -19,9 +19,9 @@ struct AppState
     int pitch = -1;
     SDL_Texture** cam_textures;
     cam_device** devices;
-    int camera_count;
+    int nb_cams;
     cam_config** configs;
-    int config_count;
+    int nb_configs;
     Webcam **webcams;
 };
 

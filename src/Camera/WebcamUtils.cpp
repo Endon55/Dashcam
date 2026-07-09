@@ -75,74 +75,6 @@ double get_highest_fps(int fd, uint32_t pixelFormat, int width, int height)
 
     return bestFps;
 }
-
-capture_mode probeBestCaptureMode(const char *devicePath)
-{
-
-    capture_mode bestMode;
-    int64_t bestScore = -1;
-
-    int fd = open(devicePath, O_RDWR | O_NONBLOCK);
-    if (fd < 0)
-    {
-        spdlog::warn("Unable to probe V4L2 formats for {}", devicePath);
-        return bestMode;
-    }
-
-    v4l2_fmtdesc fmtDesc = {};
-    fmtDesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-
-    while (ioctl(fd, VIDIOC_ENUM_FMT, &fmtDesc) == 0)
-    {
-        const char *ffmpegInputFormat = fourcc_to_str(fmtDesc.pixelformat);
-        if (ffmpegInputFormat != nullptr)
-        {
-            v4l2_frmsizeenum frameSize = {};
-            frameSize.pixel_format = fmtDesc.pixelformat;
-
-            while (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frameSize) == 0)
-            {
-                int width = 0;
-                int height = 0;
-
-                if (frameSize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
-                {
-                    width = static_cast<int>(frameSize.discrete.width);
-                    height = static_cast<int>(frameSize.discrete.height);
-                }
-                else if (frameSize.type == V4L2_FRMSIZE_TYPE_STEPWISE || frameSize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS)
-                {
-                    width = static_cast<int>(frameSize.stepwise.max_width);
-                    height = static_cast<int>(frameSize.stepwise.max_height);
-                }
-
-                if (width > 0 && height > 0)
-                {
-                    double fps = get_highest_fps(fd, fmtDesc.pixelformat, width, height);
-                    // TODO Remove Score
-                    int score = 1000;
-                    if (score > bestScore)
-                    {
-                        bestScore = score;
-                        bestMode.width = width;
-                        bestMode.height = height;
-                        bestMode.pixelFormat = fmtDesc.pixelformat;
-                        // bestMode.input_fmt = ffmpegInputFormat;
-                        bestMode.fps = fps;
-                    }
-                }
-
-                frameSize.index++;
-            }
-        }
-
-        fmtDesc.index++;
-    }
-
-    close(fd);
-    return bestMode;
-}
-
 int xioctl(int fd, int request, void *arg)
 {
     int r;
@@ -167,12 +99,12 @@ const char *getDeviceName(int index)
 int query_all_capture_modes(AppState* state) {
     int ret = 0;
 
-    for (int i = 0; i < state->camera_count; i++)
+    for (int i = 0; i < state->nb_cams; i++)
     {
         cam_device* device = state->devices[i];
         cam_config* config = Config::get_cam_config(state, device);
 
-        if(config == NULL)
+        if(config == nullptr)
         {
             spdlog::debug("No Cached config found, querying the device");
             ret = query_capture_modes(device);
@@ -184,7 +116,7 @@ int query_all_capture_modes(AppState* state) {
         }
         else{
             device->default_mode = config->default_mode;
-            device->default_mode = config->cap_modes;
+            device->cap_modes = config->cap_modes;
             device->nb_cap_modes = config->nb_cap_modes;
         }
         spdlog::debug("Camera: {}", i);
@@ -301,7 +233,7 @@ int query_all_webcams(AppState* state)
     }
     else
     {
-        spdlog::info("Udev Started");
+        spdlog::debug("Udev Started");
     }
     enum_video = udev_enumerate_new(udev);
     enum_audio = udev_enumerate_new(udev);
@@ -362,9 +294,6 @@ int query_all_webcams(AppState* state)
             test = udev_device_get_sysnum(dev);
             if (audioPath)
             {
-                spdlog::debug("   Sound:");
-                spdlog::debug("      Path: {}", path);
-                spdlog::debug("      Audio Path: {}", audioPath);
 
                 if (Utils::str_starts_with(audioPath, soundValidation))
                 {
@@ -398,9 +327,6 @@ int query_all_webcams(AppState* state)
             {
                 spdlog::critical("No dev/videoX location found, must not be valid???");
             }
-
-
- 
             state->devices[nb_usb_cameras] = (cam_device*)malloc(sizeof(cam_device));
 
             state->devices[nb_usb_cameras]->usbPath = usbPath;
@@ -416,10 +342,7 @@ int query_all_webcams(AppState* state)
             state->devices[nb_usb_cameras]->productID = productID;
             state->devices[nb_usb_cameras]->serialNumber = serialNumber;
             nb_usb_cameras++;
-
-
         }
-
         metadata = !metadata;
     }
     
@@ -441,7 +364,7 @@ int query_all_webcams(AppState* state)
         spdlog::debug("   Product ID:    {}", Utils::str_or_default(cam->productID, "[none]"));
         spdlog::debug("   Serial Number: {}", Utils::str_or_default(cam->serialNumber, "[none]"));
     }
-    state->camera_count = nb_usb_cameras;
+    state->nb_cams = nb_usb_cameras;
     return 0;
 }
 

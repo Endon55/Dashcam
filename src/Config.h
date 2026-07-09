@@ -1,15 +1,14 @@
 #pragma once
-
-#include "FileIO.h"
-#include <fstream>
 #include <toml++/toml.hpp>
-#include <iostream>
-#include <algorithm>
 #include "State.h"
 #include "Camera/Camera.h"
+
+
 namespace Config
 {
-    int load_cam_config(AppState* state);
-    int save_cam_config(int nb_of_cameras, cam_device* devices);
+    const char* str_or_null(std::string key, toml::table table);
+    const capture_mode* parse_capture_mode(toml::table table);
+    int load_cam_configs(AppState* state);
+    int save_cam_configs(AppState* state);
     cam_config* get_cam_config(AppState* app_state, cam_device* cam);
 }

@@ -25,7 +25,6 @@ extern "C"
 #include "../Utils.h"
 const char dev[] = "/dev/videoX";
 const int dev_len = 11;
-const int MAX_CAMS = 10;
 
 static const char *soundValidation = "/dev/snd/pcm";
 
@@ -46,8 +45,6 @@ int sourceColorRangeForFrame(const AVFrame *frame);
 const char *fourcc_to_str(uint32_t pixelFormat);
 
 double get_highest_fps(int fd, uint32_t pixelFormat, int width, int height);
-
-int capture_mode_score(int width, int height, uint32_t pixelFormat, double fps);
 
 char *getAudioHW(const int* card, const int* device);
 
