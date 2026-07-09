@@ -14,18 +14,6 @@
       }
     },
     {
-      "name": "base-make",
-      "hidden": true,
-      "generator": "Unix Makefiles",
-      "environment": {
-        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
-      },
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/vcpkg-toolchain-wrapper.cmake",
-        "DBUS_SESSION_SOCKET_DIR": "/tmp"
-      }
-    },
-    {
       "name": "vcpkg",
       "inherits": [
         "base"
@@ -43,28 +31,6 @@
       ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
-    },
-    {
-      "name": "vcpkg-make",
-      "inherits": [
-        "base-make"
-      ],
-      "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/build/release-make",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
-      "name": "debug-make",
-      "inherits": [
-        "vcpkg-make"
-      ],
-      "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/build/debug-make",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }

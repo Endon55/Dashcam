@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -euo pipefail
-
 dashcam_dir=$(X= cd -- "$(dirname -- "$0")" && pwd -P)
 
 vcpkg_repo="https://github.com/microsoft/vcpkg.git"
@@ -17,19 +15,11 @@ chmod a+x "$vcpkg_script"
 
 . "$vcpkg_script"
 
-sudo apt update
-sudo apt install -y \
-    build-essential \
-    cmake \
-    pkg-config \
-    libudev-dev \
-    nasm \
-    ninja-build \
-    autoconf \
-    autoconf-archive \
-    automake \
-    libtool \
-    libxtst-dev
+sudo apt install libudev-dev
+sudo apt install nasm
+sudo apt install ninja-build
+sudo apt install autoconf autoconf-archive automake libtool
+sudo apt-get install libxtst-dev
 
 VCPKG_ROOT_LINE="export VCPKG_ROOT=\"$vcpkg_dir\""
 PATH_LINE="export PATH=\"\$VCPKG_ROOT:\$PATH\""
@@ -53,21 +43,8 @@ else
     echo "vcpkg PATH configuration already exists in ~/.bashrc"
 fi
 
-# Set vars for current shell as well. Some .bashrc files are interactive-only.
-export VCPKG_ROOT="$vcpkg_dir"
-export PATH="$VCPKG_ROOT:$PATH"
-
+. ~/.bashrc
 cd "$dashcam_dir"
-
-if command -v ninja >/dev/null 2>&1; then
-    preset="host-debug"
-    build_dir="build/debug"
-else
-    preset="host-debug-make"
-    build_dir="build/debug-make"
-fi
-
-echo "Configuring with preset: $preset"
-cmake --preset "$preset" --fresh
-cmake --build "$build_dir"
+cmake --preset default
+cmake --build build/debug
 

@@ -14,18 +14,6 @@
       "inherits": "debug"
     },
     {
-      "name": "host-release-make",
-      "displayName": "Host Release (native, Makefiles)",
-      "description": "Build for the current host machine in Release mode using Unix Makefiles",
-      "inherits": "vcpkg-make"
-    },
-    {
-      "name": "host-debug-make",
-      "displayName": "Host Debug (native, Makefiles)",
-      "description": "Build for the current host machine in Debug mode using Unix Makefiles",
-      "inherits": "debug-make"
-    },
-    {
       "name": "pi-release",
       "displayName": "Raspberry Pi Release (ARM64)",
       "description": "Cross-compile for Raspberry Pi (ARM64) in Release mode",
@@ -39,7 +27,7 @@
     },
     {
       "name": "default",
-      "inherits": "host-debug-make"
+      "inherits": "host-debug"
     }
   ]
 }
