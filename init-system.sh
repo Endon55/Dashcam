@@ -6,7 +6,10 @@ vcpkg_repo="https://github.com/microsoft/vcpkg.git"
 vcpkg_dir="$HOME/vcpkg"
 vcpkg_script="bootstrap-vcpkg.sh"
 
-git clone "$vcpkg_repo" "$vcpkg_dir"
+if [ ! -d "$vcpkg_dir/.git" ]; then
+    git clone "$vcpkg_repo" "$vcpkg_dir"
+fi
+
 cd "$vcpkg_dir"
 chmod a+x "$vcpkg_script"
 
@@ -42,6 +45,6 @@ fi
 
 . ~/.bashrc
 cd "$dashcam_dir"
-cmake --preset=host-debug
-cmake build build/debug/
+cmake --preset default
+cmake --build build/debug
 

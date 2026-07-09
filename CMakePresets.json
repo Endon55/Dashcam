@@ -2,13 +2,23 @@
   "version": 2,
   "configurePresets": [
     {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "DBUS_SESSION_SOCKET_DIR": "/tmp"
+      }
+    },
+    {
       "name": "vcpkg",
+      "inherits": [
+        "base"
+      ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "CMAKE_BUILD_TYPE": "Release",
-        "DBUS_SESSION_SOCKET_DIR": "/tmp"
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
@@ -19,67 +29,63 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "DBUS_SESSION_SOCKET_DIR": "/tmp",
         "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "vcpkg-arm",
+      "inherits": [
+        "base"
+      ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release/arm",
       "environment": {
         "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
       },
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja",
-        "PKG_CONFIG_EXECUTABLE": "/usr/bin/pkg-config",
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
-        "CMAKE_SYSROOT": "/home/anthony/pi-sysroot",
+        "CMAKE_SYSROOT": "$env{HOME}/pi-sysroot",
         "VCPKG_HOST_TRIPLET": "x64-linux",
         "VCPKG_TARGET_TRIPLET": "arm64-linux",
-        "DBUS_SESSION_SOCKET_DIR": "/tmp",
-        "CMAKE_C_COMPILER": "/usr/bin/aarch64-linux-gnu-gcc",
-        "CMAKE_CXX_COMPILER": "/usr/bin/aarch64-linux-gnu-g++",
-        "CMAKE_AR": "/usr/bin/aarch64-linux-gnu-ar",
-        "CMAKE_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
-        "CMAKE_NM": "/usr/bin/aarch64-linux-gnu-nm",
-        "CMAKE_C_COMPILER_AR": "/usr/bin/aarch64-linux-gnu-ar",
-        "CMAKE_C_COMPILER_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
-        "CMAKE_CXX_COMPILER_AR": "/usr/bin/aarch64-linux-gnu-ar",
-        "CMAKE_CXX_COMPILER_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
+        "CMAKE_C_COMPILER": "aarch64-linux-gnu-gcc",
+        "CMAKE_CXX_COMPILER": "aarch64-linux-gnu-g++",
+        "CMAKE_AR": "aarch64-linux-gnu-ar",
+        "CMAKE_RANLIB": "aarch64-linux-gnu-ranlib",
+        "CMAKE_NM": "aarch64-linux-gnu-nm",
+        "CMAKE_C_COMPILER_AR": "aarch64-linux-gnu-ar",
+        "CMAKE_C_COMPILER_RANLIB": "aarch64-linux-gnu-ranlib",
+        "CMAKE_CXX_COMPILER_AR": "aarch64-linux-gnu-ar",
+        "CMAKE_CXX_COMPILER_RANLIB": "aarch64-linux-gnu-ranlib",
         "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic",
         "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic"
       }
     },
     {
       "name": "debug-arm",
+      "inherits": [
+        "base"
+      ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/debug/arm",
       "environment": {
         "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
       },
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja",
-        "PKG_CONFIG_EXECUTABLE": "/usr/bin/pkg-config",
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
-        "CMAKE_SYSROOT": "/home/anthony/pi-sysroot",
+        "CMAKE_SYSROOT": "$env{HOME}/pi-sysroot",
         "CMAKE_BUILD_TYPE": "Debug",
         "VCPKG_HOST_TRIPLET": "x64-linux",
         "VCPKG_TARGET_TRIPLET": "arm64-linux",
-        "DBUS_SESSION_SOCKET_DIR": "/tmp",
-        "CMAKE_C_COMPILER": "/usr/bin/aarch64-linux-gnu-gcc",
-        "CMAKE_CXX_COMPILER": "/usr/bin/aarch64-linux-gnu-g++",
-        "CMAKE_AR": "/usr/bin/aarch64-linux-gnu-ar",
-        "CMAKE_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
-        "CMAKE_NM": "/usr/bin/aarch64-linux-gnu-nm",
-        "CMAKE_C_COMPILER_AR": "/usr/bin/aarch64-linux-gnu-ar",
-        "CMAKE_C_COMPILER_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
-        "CMAKE_CXX_COMPILER_AR": "/usr/bin/aarch64-linux-gnu-ar",
-        "CMAKE_CXX_COMPILER_RANLIB": "/usr/bin/aarch64-linux-gnu-ranlib",
+        "CMAKE_C_COMPILER": "aarch64-linux-gnu-gcc",
+        "CMAKE_CXX_COMPILER": "aarch64-linux-gnu-g++",
+        "CMAKE_AR": "aarch64-linux-gnu-ar",
+        "CMAKE_RANLIB": "aarch64-linux-gnu-ranlib",
+        "CMAKE_NM": "aarch64-linux-gnu-nm",
+        "CMAKE_C_COMPILER_AR": "aarch64-linux-gnu-ar",
+        "CMAKE_C_COMPILER_RANLIB": "aarch64-linux-gnu-ranlib",
+        "CMAKE_CXX_COMPILER_AR": "aarch64-linux-gnu-ar",
+        "CMAKE_CXX_COMPILER_RANLIB": "aarch64-linux-gnu-ranlib",
         "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic",
         "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic"
       }
