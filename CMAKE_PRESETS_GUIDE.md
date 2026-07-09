@@ -9,6 +9,8 @@ These presets build for your x64-linux host machine:
 
 - **`host-release`** - Release build for host machine (optimized, no debug symbols)
 - **`host-debug`** - Debug build for host machine (debug symbols, development-friendly)
+- **`host-release-make`** - Release build for host machine using Unix Makefiles
+- **`host-debug-make`** - Debug build for host machine using Unix Makefiles
 
 ### Raspberry Pi Cross-Compilation
 These presets cross-compile for ARM64 Raspberry Pi using your pi-sysroot:
@@ -21,15 +23,15 @@ These presets cross-compile for ARM64 Raspberry Pi using your pi-sysroot:
 ### Configure and Build for Host Machine (Debug)
 
 ```bash
-cmake --preset host-debug
-cmake --build build/debug
+cmake --preset host-debug-make
+cmake --build build/debug-make
 ```
 
 ### Configure and Build for Host Machine (Release)
 
 ```bash
-cmake --preset host-release
-cmake --build build/release
+cmake --preset host-release-make
+cmake --build build/release-make
 ```
 
 ### Configure and Build for Raspberry Pi (Debug)
@@ -57,6 +59,8 @@ cmake --list-presets
 Build outputs are organized by configuration:
 - `build/debug/` - Host debug build
 - `build/release/` - Host release build
+- `build/debug-make/` - Host debug build (Unix Makefiles)
+- `build/release-make/` - Host release build (Unix Makefiles)
 - `build/debug/arm/` - Raspberry Pi debug build
 - `build/release/arm/` - Raspberry Pi release build
 
