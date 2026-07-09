@@ -3,13 +3,13 @@
   "spdxVersion": "SPDX-2.2",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "documentNamespace": "https://spdx.org/spdxdocs/sdl3-x64-linux-3.4.0-834de728-919a-4cd6-9808-c3bf704c03d8",
-  "name": "sdl3:x64-linux@3.4.0 15902d56af40131299cfbbccfd2903010bdedec52cd2079ac479aa6876ea1d0c",
+  "documentNamespace": "https://spdx.org/spdxdocs/sdl3-x64-linux-3.4.0-8b56ea5e-04ab-415a-af00-b3d4551973e2",
+  "name": "sdl3:x64-linux@3.4.0 c47fe71fe05ec1350e21076b17529c7f45287c70e4e691352558d7c9f38cecf1",
   "creationInfo": {
     "creators": [
       "Tool: vcpkg-2025-12-16-44bb3ce006467fc13ba37ca099f64077b8bbf84d"
     ],
-    "created": "2026-01-31T12:32:06Z"
+    "created": "2026-03-11T11:09:30Z"
   },
   "relationships": [
     {
@@ -504,7 +504,7 @@
     {
       "name": "sdl3:x64-linux",
       "SPDXID": "SPDXRef-binary",
-      "versionInfo": "15902d56af40131299cfbbccfd2903010bdedec52cd2079ac479aa6876ea1d0c",
+      "versionInfo": "c47fe71fe05ec1350e21076b17529c7f45287c70e4e691352558d7c9f38cecf1",
       "downloadLocation": "NONE",
       "licenseConcluded": "Apache-2.0 AND MIT AND Zlib",
       "licenseDeclared": "NOASSERTION",
@@ -1613,7 +1613,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "63e73726e7b0f43f5b2eea0922e7ef8d2183eafa7f32405e855e24e196089ba5"
+          "checksumValue": "d8693ec66a932cd669cfef9c829f6b17c5a814577d188325aafde080e3ba1884"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -1637,7 +1637,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "27b0cab55200a08b157d62fcbfda67c5e41c5b5966409c8e25dc35b5add8c49e"
+          "checksumValue": "a67a1d0e2653716c11fc16f8b29ed65abb5f04c48ce4abe9a1cc82416867e7ba"
         }
       ],
       "licenseConcluded": "NOASSERTION",

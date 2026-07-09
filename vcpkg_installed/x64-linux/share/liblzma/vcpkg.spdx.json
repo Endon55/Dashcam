@@ -3,13 +3,13 @@
   "spdxVersion": "SPDX-2.2",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "documentNamespace": "https://spdx.org/spdxdocs/liblzma-x64-linux-5.8.2-2b91675f-ca14-403e-b186-1d8858483d0b",
-  "name": "liblzma:x64-linux@5.8.2 f2859f1e81f1ac100f4980fde70a8a132bf82f510d21a48d10f9717ce6c6f079",
+  "documentNamespace": "https://spdx.org/spdxdocs/liblzma-x64-linux-5.8.2-5706fa3b-5f08-4412-b711-99269fa59420",
+  "name": "liblzma:x64-linux@5.8.2 de5139386842f82d34b6bda0edd6aba87cb6fae84b8f6889ae93c2f39573e638",
   "creationInfo": {
     "creators": [
       "Tool: vcpkg-2025-12-16-44bb3ce006467fc13ba37ca099f64077b8bbf84d"
     ],
-    "created": "2026-01-22T12:40:50Z"
+    "created": "2026-03-11T11:08:11Z"
   },
   "relationships": [
     {
@@ -294,7 +294,7 @@
     {
       "name": "liblzma:x64-linux",
       "SPDXID": "SPDXRef-binary",
-      "versionInfo": "f2859f1e81f1ac100f4980fde70a8a132bf82f510d21a48d10f9717ce6c6f079",
+      "versionInfo": "de5139386842f82d34b6bda0edd6aba87cb6fae84b8f6889ae93c2f39573e638",
       "downloadLocation": "NONE",
       "licenseConcluded": "LicenseRef-vcpkg-null",
       "licenseDeclared": "NOASSERTION",
@@ -899,7 +899,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "584e2608e5e716090e7b3496e709c5f5c66c8d0f6678e5047cb899ae0496a333"
+          "checksumValue": "cf013a546e061f69d561ff76edc86862acbfdf96e94860e61cb17ef0cbb2c48a"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -923,7 +923,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "6f956a6391708eaf73cbf83a64eb1fa533327554fe8d534c6e4e0cc2a0fa2d26"
+          "checksumValue": "21e81e47d3ee972a010d43de38c2533c2ec846b1008044ad12d19b32e8b5fe84"
         }
       ],
       "licenseConcluded": "NOASSERTION",

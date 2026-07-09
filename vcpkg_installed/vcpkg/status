@@ -2,14 +2,14 @@ Package: vcpkg-cmake-config
 Version: 2024-05-23
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 9097b9feaf5a6e2951c96806758bbfa9cd9516d8fa9f6a15a37f20701a30ca29
+Abi: 938b5e1dc7ceacf08654bef246055524d658786b56f39c96f3b23d2de8d063d3
 Status: install ok installed
 
 Package: vcpkg-cmake
 Version: 2024-04-23
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 14fa555736fabc3375d448d45f54de5493de6b06492e440fbde685e24acb3732
+Abi: f7cbaf4a1eecbbb1579be1e8dbbd016626910498335b8370236a4219615937b6
 Status: install ok installed
 
 Package: fmt
@@ -17,7 +17,7 @@ Version: 12.1.0
 Depends: vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 1282ff6fdd9c974da4bb0d04d51a6b5e5c8586e6a84db3da2d0657c870a60b49
+Abi: e19e0e090d40221e10cca54b0bfb3229a360f288764d3d2e890ed961c0d29eff
 Description: {fmt} is an open-source formatting library providing a fast and safe alternative to C stdio and C++ iostreams.
 Status: install ok installed
 
@@ -26,7 +26,7 @@ Version: 3.1.3
 Depends: vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-linux
 Multi-Arch: same
-Abi: de05048b2a61e8c9a8b2a39c7a1329a87c2aff194c36db374a0332c7fa27fc2a
+Abi: 7fe5792752c370fa43c529c2d0edec0eebd5856bd2e12562d5314ea48e75de2c
 Description: libjpeg-turbo is a JPEG image codec that uses SIMD instructions (MMX, SSE2, NEON, AltiVec) to accelerate baseline JPEG compression and decompression on x86, x86-64, ARM, and PowerPC systems.
 Status: install ok installed
 
@@ -35,7 +35,7 @@ Version: 1.5.7
 Depends: vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 18500f17267d947d84d11e027b30d42c559bec1c66b391699a0d59b9bc5fefae
+Abi: ba262299fe6080ff38351b9d3ccdffa635811db6952b1b2bee98082c23dfc84a
 Description: Zstandard - Fast real-time compression algorithm
 Status: install ok installed
 
@@ -44,7 +44,7 @@ Version: 2025-05-29
 Depends: vcpkg-cmake
 Architecture: x64-linux
 Multi-Arch: same
-Abi: a9fbed5e20e3c03737fdce051b4639a089b7f72518903511e1f557017d793d97
+Abi: 9601f3d976f1c6bc60850868da9e9e409bedf5fe9e7a91f8f973ebfbb75e58fb
 Status: install ok installed
 
 Package: vcpkg-tool-meson
@@ -53,7 +53,7 @@ Port-Version: 3
 Depends: vcpkg-cmake-get-vars
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 015502a6b39f47b528d0ce3925ffbd652dc35f6895cec7b52f88380af9f8b2c5
+Abi: fda5d5dc45a2349d43c5d0a00a6c34e9a485c2c6821515fa6a92e81b3c8ec68c
 Description: Meson build system
 Status: install ok installed
 
@@ -61,7 +61,7 @@ Package: vcpkg-get-python-packages
 Version: 2025-04-05
 Architecture: x64-linux
 Multi-Arch: same
-Abi: ab1f6bb6d18bc2086c5c45dab517689669ef63d629a45db9f3fa3bd9e1e9a831
+Abi: 75506c094bd0efacd4cb032852f0e9e63f7e4045db73706b9b62623292b755e8
 Status: install ok installed
 
 Package: lz4
@@ -69,7 +69,7 @@ Version: 1.10.0
 Depends: vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 6485a46fa15e2b379a2fdb7156fa54eef08135f8f21a031303d25a6452c4f409
+Abi: e43fb6b0c24398a08a2a702239fb5c1e816ec35ca0877c014c3c2ad96c9ce62a
 Description: Lossless compression algorithm, providing compression speed at 400 MB/s per core.
 Status: install ok installed
 
@@ -78,7 +78,7 @@ Version: 2026-01-01
 Depends: vcpkg-cmake-get-vars
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 20add66a62256698c9f1cb13ce55b4f18bc3d69c5c9e5dfa036ec97901f54dbb
+Abi: f3ef6355fff5d72b7f78e5537b5ec8c88ceb4ccb079ecd8eb7cec9c76a73391e
 Status: install ok installed
 
 Package: libxcrypt
@@ -86,7 +86,7 @@ Version: 4.5.2
 Depends: vcpkg-make
 Architecture: x64-linux
 Multi-Arch: same
-Abi: b92aa51d7c0bad4ae7126bb6258469ccd9f8ff873e6f390f751ccdef475526bf
+Abi: 8cc77ad1111a66865a6ce7c4da42b3788ad4ee3750070841b7943f30c29edf81
 Description: libxcrypt is a modern library for one-way hashing of passwords. On Linux-based systems, by default libxcrypt will be binary backward compatible with the libcrypt.so.1 shipped as part of the GNU C Library.
 Status: install ok installed
 
@@ -94,7 +94,7 @@ Package: libmount
 Version: 2.41.3
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 60451e4fe5cf1f3f3394265d728ab9589269576d7b802c0e0e4a2b5901e37520
+Abi: a9c2deb2b91124b444650a3d5ab00fe1f7f8d9ef2c8cec41bc3aad8ad6e26b73
 Description: Block device identification library from util-linux
 Status: install ok installed
 
@@ -103,7 +103,7 @@ Version: 5.8.2
 Depends: vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-linux
 Multi-Arch: same
-Abi: f2859f1e81f1ac100f4980fde70a8a132bf82f510d21a48d10f9717ce6c6f079
+Abi: de5139386842f82d34b6bda0edd6aba87cb6fae84b8f6889ae93c2f39573e638
 Description: Compression library with an API similar to that of zlib.
 Status: install ok installed
 
@@ -112,7 +112,7 @@ Version: 2.77
 Depends: vcpkg-cmake-get-vars, vcpkg-make
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 638745a6a94fe150960631bdd443effaa773ae1f0f4625d14fed8682a23dfd4f
+Abi: d6d5132d1e1e3397b1e107ba3d42ea9aaa0c2d8b53bca21c5fc79fced0633abe
 Description: A library for getting and setting POSIX.1e (formerly POSIX 6) draft 15 capabilities.
 Status: install ok installed
 
@@ -121,7 +121,7 @@ Version: 3.3
 Depends: vcpkg-make
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 646e7c12cb4daa9719d3c0b377f5ef68b0cd33d22144e8173da63993d60406be
+Abi: 37671983ef53ce88032c03af2178a5fa1bfbefbd16e703c99949824bb8045345
 Description: GNU perfect hash function generator
 Status: install ok installed
 
@@ -131,7 +131,7 @@ Port-Version: 1
 Depends: gperf, libcap, liblzma, libmount, libxcrypt, lz4, vcpkg-get-python-packages, vcpkg-tool-meson, zstd
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 0f1c59b2b9a95ee87b245c87f58f3254ebd49e95fdcbe9a35107d094dcaf194a
+Abi: eac0d32df9efbbb824330c23b894f0b6f78b1ccfbdf9216c8b8a297fe8ac51ef
 Description: Libsystemd
 Status: install ok installed
 
@@ -140,7 +140,7 @@ Version: 2.7.3
 Depends: vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-linux
 Multi-Arch: same
-Abi: f1793867f18c45bafc32f6fdfea4fc81f23615bb178e16f45df64fb3035c063f
+Abi: d8bd4c32522196963e6cac58f8d978729ddd243a9b21e3a83a7cfb40e8fd878d
 Description: XML parser library written in C
 Status: install ok installed
 
@@ -150,7 +150,7 @@ Port-Version: 2
 Depends: expat, vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-linux
 Multi-Arch: same
-Abi: ab5e96b654fb55ae4161c678e770e38ca36095d6a9a9c8dcef2e2bc390cc1eb9
+Abi: cf31dcf33dc9e190fba91f12220d761b779c551ef88901a2f41459e057af9608
 Description: D-Bus specification and reference implementation, including libdbus and dbus-daemon
 Default-Features: systemd
 Status: install ok installed
@@ -168,7 +168,7 @@ Version: 3.4.0
 Depends: dbus, vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 15902d56af40131299cfbbccfd2903010bdedec52cd2079ac479aa6876ea1d0c
+Abi: c47fe71fe05ec1350e21076b17529c7f45287c70e4e691352558d7c9f38cecf1
 Description: Simple DirectMedia Layer is a cross-platform development library designed to provide low level access to audio, keyboard, mouse, joystick, and graphics hardware via OpenGL and Direct3D.
 Default-Features: ibus, wayland, x11
 Status: install ok installed
@@ -199,7 +199,7 @@ Version: 3.2.6
 Depends: sdl3, vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-linux
 Multi-Arch: same
-Abi: e043ab0be94e488cfe7c3947251729ed33ed5d512e023c02ddc1326df1221b77
+Abi: 88360818dbaa8640a256baf5ceb80159bd01bb1492d62c8f3c259de03d0c9e0a
 Description: SDL_image is an image file loading library. It loads images as SDL surfaces and textures, and supports the following formats: BMP, GIF, JPEG, LBM, PCX, PNG, PNM, TGA, TIFF, WEBP, XCF, XPM, XV
 Status: install ok installed
 
@@ -209,7 +209,7 @@ Port-Version: 4
 Depends: vcpkg-tool-meson
 Architecture: x64-linux
 Multi-Arch: same
-Abi: ef315ce2f3c0cf0da748d1fa1f5285acaf6a950036c37e14c18336e8df994d8b
+Abi: dee7bca611ff6e9598c7387adb31ce3f50f8dc8afa0f8357a1712bc480174e0c
 Description: pkgconf is a program which helps to configure compiler and linker flags for development libraries. It is similar to pkg-config from freedesktop.org.
 Status: install ok installed
 
@@ -218,7 +218,7 @@ Version: 2024-04-03
 Depends: pkgconf
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 6f688943be3a40053ffd734cc3a4d8b02c288f26026e5a6c6b37ff3314801466
+Abi: caec750de894bd7f90c64a2c7c1b2a4318f9bdcf3c39cb60d3eb1d4762ebe47b
 Status: install ok installed
 
 Package: ffmpeg-bin2c
@@ -226,7 +226,7 @@ Version: 8.0.1
 Depends: vcpkg-cmake
 Architecture: x64-linux
 Multi-Arch: same
-Abi: 46035775d14f92611719efd4657c6e14c0342147e382529b4dfc29e8d8103608
+Abi: 8c8d9eb946c6a1668f3b4e29ba248d16f0544b4825a680881c3c13ec941d7a8f
 Description: Host tool bin2c for FFmpeg build
 Status: install ok installed
 
@@ -236,7 +236,7 @@ Port-Version: 1
 Depends: ffmpeg-bin2c, vcpkg-cmake-get-vars, vcpkg-pkgconfig-get-modules
 Architecture: x64-linux
 Multi-Arch: same
-Abi: b26c626bacdc82c77bb5dcc734c8424b39acf7ee528fc8a2f4ed90b5ac9912eb
+Abi: 5e4dd063520536de9aad7f252b53c514dd06677275d53983688bb4057e9e10db
 Description: A library to decode, encode, transcode, mux, demux, stream, filter and play pretty much anything that humans and machines have created.
     FFmpeg is the leading multimedia framework, able to decode, encode, transcode, mux, demux, stream, filter and play pretty much anything that humans and machines have created. It supports the most obscure ancient formats up to the cutting edge. No matter if they were designed by some standards committee, the community or a corporation. It is also highly portable: FFmpeg compiles, runs, and passes our testing infrastructure FATE across Linux, Mac OS X, Microsoft Windows, the BSDs, Solaris, etc. under a wide variety of build environments, machine architectures, and configurations.
 Default-Features: avcodec, avdevice, avfilter, avformat, swresample, swscale
@@ -282,5 +282,88 @@ Feature: swscale
 Architecture: x64-linux
 Multi-Arch: same
 Description: Build the swscale library
+Status: install ok installed
+
+Package: alsa
+Version: 1.2.15.3
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 556c810bf2e3a89017b6c8f51eb3830c5bdd9008413c623edf760c5a46b8a7b9
+Description: The Advanced Linux Sound Architecture (ALSA) - library
+Status: install ok installed
+
+Package: ffmpeg
+Feature: alsa
+Depends: alsa
+Architecture: x64-linux
+Multi-Arch: same
+Description: Enable ALSA support
+Status: install ok installed
+
+Package: imgui
+Version: 1.91.9
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: aba38e9e6856e6465b3dac92ebbb54aca9ef593766b89450f70620596c89155b
+Description: Bloat-free Immediate Mode Graphical User interface for C++ with minimal dependencies.
+Status: install ok installed
+
+Package: imgui
+Feature: docking-experimental
+Architecture: x64-linux
+Multi-Arch: same
+Description: Build with docking support
+Status: install ok installed
+
+Package: imgui
+Feature: sdl3-binding
+Depends: sdl3
+Architecture: x64-linux
+Multi-Arch: same
+Description: Make available SDL3 binding
+Status: install ok installed
+
+Package: imgui
+Feature: sdl3-renderer-binding
+Depends: sdl3
+Architecture: x64-linux
+Multi-Arch: same
+Description: Make available SDL3 Renderer binding
+Status: install ok installed
+
+Package: spdlog
+Version: 1.17.0
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 567bbb4b8d04352e01dab305de65d578bdb0ac9a9322ab9fceff36353aa6500d
+Description: Very fast, header-only/compiled, C++ logging library.
+Default-Features: fmt, tz-offset
+Status: install ok installed
+
+Package: spdlog
+Feature: fmt
+Depends: fmt
+Architecture: x64-linux
+Multi-Arch: same
+Description: Use fmt library
+Status: install ok installed
+
+Package: spdlog
+Feature: tz-offset
+Architecture: x64-linux
+Multi-Arch: same
+Description: Omit %z timezone offset (use on platforms without tm_gmtoff)
+Status: install ok installed
+
+Package: tomlplusplus
+Version: 3.4.0
+Port-Version: 1
+Depends: vcpkg-cmake-config, vcpkg-tool-meson
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 560134b496b4dcea8c362f695345c88a2611419e9f1557ab42f27f1627ffdfbe
+Description: Header-only TOML config file parser and serializer for modern C++.
 Status: install ok installed
 

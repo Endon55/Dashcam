@@ -3,13 +3,13 @@
   "spdxVersion": "SPDX-2.2",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "documentNamespace": "https://spdx.org/spdxdocs/libjpeg-turbo-x64-linux-3.1.3-70af302e-5055-48ee-b0a0-d45e03642e34",
-  "name": "libjpeg-turbo:x64-linux@3.1.3 de05048b2a61e8c9a8b2a39c7a1329a87c2aff194c36db374a0332c7fa27fc2a",
+  "documentNamespace": "https://spdx.org/spdxdocs/libjpeg-turbo-x64-linux-3.1.3-31b59521-69ca-4f24-abe9-155346a1133a",
+  "name": "libjpeg-turbo:x64-linux@3.1.3 7fe5792752c370fa43c529c2d0edec0eebd5856bd2e12562d5314ea48e75de2c",
   "creationInfo": {
     "creators": [
       "Tool: vcpkg-2025-12-16-44bb3ce006467fc13ba37ca099f64077b8bbf84d"
     ],
-    "created": "2026-01-28T15:21:08Z"
+    "created": "2026-03-11T11:07:01Z"
   },
   "relationships": [
     {
@@ -179,7 +179,7 @@
     {
       "name": "libjpeg-turbo:x64-linux",
       "SPDXID": "SPDXRef-binary",
-      "versionInfo": "de05048b2a61e8c9a8b2a39c7a1329a87c2aff194c36db374a0332c7fa27fc2a",
+      "versionInfo": "7fe5792752c370fa43c529c2d0edec0eebd5856bd2e12562d5314ea48e75de2c",
       "downloadLocation": "NONE",
       "licenseConcluded": "BSD-3-Clause",
       "licenseDeclared": "NOASSERTION",
@@ -328,7 +328,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "a4314fc13384c6eac7f7831f364e45e67f4b9721800af956c2bd98e28251dbae"
+          "checksumValue": "5344c84caf7a7794a954623b4b9d69bec83b035c11732a9b3275d5cb84cf3bfe"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -400,7 +400,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "4ef5ea8c244ef64e3af2fcafddd01b9157001975978dff6194b8b4973ab0eea8"
+          "checksumValue": "56f18b54a98b984d66e51958b6097862dd0442f988e54224e2eec06cfa7dce3a"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -436,7 +436,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "503e7bebd660f912433082327480c9c126f76d89c2caa8f195199127136577a9"
+          "checksumValue": "9e7af202d0e0b8e6da70daefb873b7f05b685a16e25d521b96142d838d372735"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -448,7 +448,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "d04e761e8005898a0cf754d50dbcdc0d979daae4c67abc05a62c282f3ab14508"
+          "checksumValue": "4a60a34807f02558bb7041765f3c40124b6879c350289ce2a6f9eb5716ab733a"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -484,7 +484,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "4b8eca10781f9f18d9ccd4b2ab0cacc37fe213bd8abbd75ffe791dfdb2e1b2a7"
+          "checksumValue": "47a4201af12047a674735fb8e4258e06d851dec5fb3444f2e38b0cc838a6838c"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -496,7 +496,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "c6f7aa2b16d5fe9cc9ca89b0d95eeab14b7cb832589c30b904fb665d18e2639e"
+          "checksumValue": "15139a9e8bf91ef06875d9d6f0c8464ea918ba097ee5f5b7f08faacd1ab3fc23"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -532,7 +532,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "7854d86ee8d293d9c37499b994f0ab37f5f73a1a11cf1afea4b5849ca4037194"
+          "checksumValue": "02356b099366a2c2bae8b279d9fbf8379e20e4d32c47e28e2c680d9b290d0f62"
         }
       ],
       "licenseConcluded": "NOASSERTION",

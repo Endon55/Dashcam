@@ -5,14 +5,10 @@
       "name": "vcpkg",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
-      "environment": {
-        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
-      },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "CMAKE_BUILD_TYPE": "Release",
-        "DBUS_SESSION_SOCKET_DIR": "/tmp",
-        "VCPKG_HOST_TRIPLET": "x64-linux"
+        "DBUS_SESSION_SOCKET_DIR": "/tmp"
       }
     },
     {
@@ -22,14 +18,10 @@
       ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/debug",
-      "environment": {
-        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
-      },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "/home/anthony/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "DBUS_SESSION_SOCKET_DIR": "/tmp",
-        "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_HOST_TRIPLET": "x64-linux"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {

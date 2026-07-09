@@ -3,13 +3,13 @@
   "spdxVersion": "SPDX-2.2",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "documentNamespace": "https://spdx.org/spdxdocs/lz4-x64-linux-1.10.0-21dc52c4-d345-4091-97b1-5be34f27a6eb",
-  "name": "lz4:x64-linux@1.10.0 6485a46fa15e2b379a2fdb7156fa54eef08135f8f21a031303d25a6452c4f409",
+  "documentNamespace": "https://spdx.org/spdxdocs/lz4-x64-linux-1.10.0-b328da3d-5512-4097-bbad-b0819a1a65ed",
+  "name": "lz4:x64-linux@1.10.0 e43fb6b0c24398a08a2a702239fb5c1e816ec35ca0877c014c3c2ad96c9ce62a",
   "creationInfo": {
     "creators": [
       "Tool: vcpkg-2025-12-16-44bb3ce006467fc13ba37ca099f64077b8bbf84d"
     ],
-    "created": "2026-01-22T12:38:00Z"
+    "created": "2026-03-11T11:07:17Z"
   },
   "relationships": [
     {
@@ -144,7 +144,7 @@
     {
       "name": "lz4:x64-linux",
       "SPDXID": "SPDXRef-binary",
-      "versionInfo": "6485a46fa15e2b379a2fdb7156fa54eef08135f8f21a031303d25a6452c4f409",
+      "versionInfo": "e43fb6b0c24398a08a2a702239fb5c1e816ec35ca0877c014c3c2ad96c9ce62a",
       "downloadLocation": "NONE",
       "licenseConcluded": "BSD-2-Clause",
       "licenseDeclared": "NOASSERTION",
@@ -389,7 +389,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "9042eb74694488862cda485a33127d2521c0007bdb12699e1348527a8aaddbda"
+          "checksumValue": "06469408e56dec0270681c8c4a3da297467989333b016ecf3936fdee20411d66"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -413,7 +413,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "b0b7fc043bcd4002a23931c267d510bdfc0bc4b58edaf0b9047d8a30607502e6"
+          "checksumValue": "99e3bc9cc82dda0f50cc5e111ca1b902955ba9f88d3eb9f30874689a463d4a39"
         }
       ],
       "licenseConcluded": "NOASSERTION",
