@@ -1,4 +1,33 @@
 #include "Webcam.h"
+#include "../Settings.h"
+#include "Macros.h"
+
+#include <string>
+#include <stdio.h>
+#include <chrono>
+#include <string>
+#include <stdio.h>
+#include <spdlog/spdlog.h>
+
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavdevice/avdevice.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/opt.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
+#include <libavutil/rational.h>
+#include <libavutil/time.h>
+#include <libswscale/swscale.h>
+#include <libswresample/swresample.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersrc.h>
+#include <libavfilter/buffersink.h>
+}
+
+
 
 Webcam::Webcam(cam_device *camera) : has_audio(camera->audioCard != NULL)
 {

@@ -1,6 +1,31 @@
 #include "WebcamUtils.h"
 #include "../Config.h"
 
+#include <errno.h>
+#include "../Utils.h"
+
+#include <linux/videodev2.h>
+
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <ctime>
+#include <alsa/asoundlib.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <libudev.h>
+#include <spdlog/spdlog.h>
+
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavdevice/avdevice.h>
+}
+
+
+
 int sourceColorRangeForFrame(const AVFrame *frame)
 {
     if (frame->color_range == AVCOL_RANGE_JPEG)

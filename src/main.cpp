@@ -22,6 +22,10 @@
 #include "State.h"
 #include "UI.h"
 
+#include <imgui.h>
+#include <imgui_impl_sdl3.h>
+#include <imgui_impl_sdlrenderer3.h>
+
 int sdl_load_audio_spec(SDL_AudioSpec *spec, const AVCodecContext *codecContext);
 void getCardAndDevice(const char *pcm_string, int *card, int *device);
 int getUsbIndex(const char *usbPath, cam_device *devices);

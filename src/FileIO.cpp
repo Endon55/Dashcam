@@ -1,4 +1,7 @@
 #include "FileIO.h"
+#include <fstream>
+#include <spdlog/spdlog.h>
+
 
 std::filesystem::path FileIO::get_or_create_folder(std::filesystem::path folder)
 {

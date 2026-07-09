@@ -2,44 +2,22 @@
 #pragma once
 
 #include <stdlib.h>
-#include <string>
 #include <atomic>
 #include <thread>
-#include <mutex>
 #include <SDL3/SDL.h>
 #include <atomic>
-#include <chrono>
 #include <cmath>
 #include <cstring>
-#include <string>
 #include <fcntl.h>
 #include <alsa/asoundlib.h>
 
 
 
-#include <stdio.h>
 extern "C"
 {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavdevice/avdevice.h>
-#include <libavutil/imgutils.h>
-#include <libavutil/opt.h>
-#include <libavutil/channel_layout.h>
-#include <libavutil/samplefmt.h>
-#include <libavutil/rational.h>
-#include <libavutil/time.h>
-#include <libswscale/swscale.h>
-#include <libswresample/swresample.h>
-#include <libavfilter/avfilter.h>
-#include <libavfilter/buffersrc.h>
 #include <libavfilter/buffersink.h>
 }
-#include <spdlog/spdlog.h>
-#include <stdio.h>
-#include "Macros.h"
 #include "Muxor.h"
-#include "../Settings.h"
 #include "Camera.h"
 using namespace std;
 

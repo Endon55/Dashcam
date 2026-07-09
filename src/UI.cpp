@@ -1,6 +1,12 @@
 #include "UI.h"
 #include <string>
 #include <imgui_internal.h>
+#include "Camera/Camera.h"
+#include "Settings.h"
+#include "Utils.h"
+
+
+
 
 static bool settings_open = false;
 static bool settings_modified = false;

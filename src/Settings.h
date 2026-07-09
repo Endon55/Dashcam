@@ -1,14 +1,6 @@
 #pragma once
 
 #include <filesystem>
-#include <fstream>
-#include <string.h>
-#include <map>
-#include <toml++/toml.hpp>
-#include <iostream>
-#include <spdlog/spdlog.h>
-#include "FileIO.h"
-
 struct settings
 {
     bool mute = false;

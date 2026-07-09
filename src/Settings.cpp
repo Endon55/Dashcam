@@ -1,6 +1,12 @@
 #include "Settings.h"
 
 #include "FileIO.h"
+#include <fstream>
+#include <toml++/toml.hpp>
+#include <iostream>
+#include <spdlog/spdlog.h>
+#include "FileIO.h"
+
 
 #ifndef SettingsState
 settings state;
