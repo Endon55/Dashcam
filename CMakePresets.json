@@ -9,7 +9,7 @@
         "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets"
       },
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/vcpkg-toolchain-wrapper.cmake",
         "DBUS_SESSION_SOCKET_DIR": "/tmp"
       }
     },
@@ -46,9 +46,12 @@
         "CMAKE_BUILD_TYPE": "Release",
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
         "CMAKE_SYSROOT": "$env{HOME}/pi-sysroot",
-        "VCPKG_TARGET_TRIPLET": "arm64-linux",
         "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic",
         "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic"
+      },
+      "environment": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets",
+        "DASHCAM_VCPKG_TARGET_TRIPLET": "arm64-linux"
       }
     },
     {
@@ -62,9 +65,12 @@
         "VCPKG_CHAIN_LOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/aarch64-pi-toolchain.cmake",
         "CMAKE_SYSROOT": "$env{HOME}/pi-sysroot",
         "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_TARGET_TRIPLET": "arm64-linux",
         "CMAKE_C_FLAGS": "-march=armv8-a -mtune=generic",
         "CMAKE_CXX_FLAGS": "-march=armv8-a -mtune=generic"
+      },
+      "environment": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg-overlay/triplets",
+        "DASHCAM_VCPKG_TARGET_TRIPLET": "arm64-linux"
       }
     }
   ]
