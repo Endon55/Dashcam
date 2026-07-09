@@ -7,6 +7,8 @@ struct settings
     std::string save_dir = "";
 };
 
+
+
 namespace Settings
 {
     int load();

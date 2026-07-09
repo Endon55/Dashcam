@@ -10,4 +10,6 @@ SDL_AppResult SDL_iterate(AppState *app_state);
 
 SDL_AppResult SDL_event(AppState *app_state, SDL_Event *event);
 
+
 SDL_AppResult SDL_quit(AppState *app_state);
+
