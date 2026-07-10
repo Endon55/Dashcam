@@ -346,12 +346,15 @@ int query_all_webcams(AppState* state)
         {
             if (!usbPath)
             {
-                spdlog::critical("No no pci/usb coordinates, how did we even find this???");
+                spdlog::debug("No no pci/usb coordinates, must be an internal device: {}", videoPath);
+                continue;
             }
             if (!videoPath)
             {
-                spdlog::critical("No dev/videoX location found, must not be valid???");
+                spdlog::debug("No dev/videoX location found, must not be valid???");
+                continue;
             }
+
             state->devices[nb_usb_cameras] = (cam_device*)malloc(sizeof(cam_device));
 
             state->devices[nb_usb_cameras]->usbPath = usbPath;
