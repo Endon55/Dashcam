@@ -19,6 +19,8 @@ std::filesystem::path FileIO::get_or_create_file(std::filesystem::path file)
 {
     if (!std::filesystem::exists(file))
     {
+        get_or_create_folder(file.parent_path());
+       
         std::ofstream fileStream;
         fileStream.open(file);
         if (!fileStream.is_open())
