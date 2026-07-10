@@ -312,7 +312,6 @@ int query_all_webcams(AppState* state)
 
         udev_list_entry_foreach(dev_list_entry2, audio_devices)
         {
-
             path = udev_list_entry_get_name(dev_list_entry2);
             dev = udev_device_new_from_syspath(udev, path);
             audioPath = udev_device_get_devnode(dev);
@@ -359,16 +358,20 @@ int query_all_webcams(AppState* state)
 
             state->devices[nb_usb_cameras]->usbPath = usbPath;
             state->devices[nb_usb_cameras]->videoPath = videoPath;
-            state->devices[nb_usb_cameras]->audioPath = audioPath;
-            state->devices[nb_usb_cameras]->audioCard = card_num;
-            state->devices[nb_usb_cameras]->audioDevice = device_num;
-            state->devices[nb_usb_cameras]->hw = (const char*)getAudioHW(state->devices[nb_usb_cameras]->audioCard, state->devices[nb_usb_cameras]->audioDevice);
+ 
             state->devices[nb_usb_cameras]->manufacturer = manufacturer;
             state->devices[nb_usb_cameras]->product = product;
-
             state->devices[nb_usb_cameras]->vendorID = vendorID;
             state->devices[nb_usb_cameras]->productID = productID;
             state->devices[nb_usb_cameras]->serialNumber = serialNumber;
+            state->devices[nb_usb_cameras]->audioPath = audioPath;
+            state->devices[nb_usb_cameras]->audioCard = card_num;
+            state->devices[nb_usb_cameras]->audioDevice = device_num;
+        
+            if(card_num && device_num)
+            {
+               state->devices[nb_usb_cameras]->hw = (const char*)getAudioHW(state->devices[nb_usb_cameras]->audioCard, state->devices[nb_usb_cameras]->audioDevice);
+            }
             nb_usb_cameras++;
         }
         metadata = !metadata;
