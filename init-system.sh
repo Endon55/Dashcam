@@ -20,6 +20,10 @@ sudo apt install nasm
 sudo apt install ninja-build
 sudo apt install autoconf autoconf-archive automake libtool
 sudo apt-get install libxtst-dev
+sudo apt install libx11-dev libxft-dev libxft-dev
+sudo apt install libwayland-dev libxkbcommon-dev libegl1-mesa-dev
+sudo apt install libibus-1.0-dev
+
 
 VCPKG_ROOT_LINE="export VCPKG_ROOT=\"$vcpkg_dir\""
 PATH_LINE="export PATH=\"\$VCPKG_ROOT:\$PATH\""
