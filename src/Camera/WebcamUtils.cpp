@@ -289,6 +289,18 @@ int query_all_webcams(AppState* state)
 
     udev_list_entry_foreach(dev_list_entry, video_devices)
     {
+        path = nullptr;
+        usbPath = nullptr;
+        videoPath = nullptr;
+        manufacturer = nullptr;
+        product = nullptr;
+        productID = nullptr;
+        vendorID = nullptr;
+        serialNumber = nullptr;
+        audioPath = nullptr;
+        card_num = nullptr;
+        device_num = nullptr;
+
         path = udev_list_entry_get_name(dev_list_entry);
         dev = udev_device_new_from_syspath(udev, path);
 
@@ -312,6 +324,10 @@ int query_all_webcams(AppState* state)
 
         udev_list_entry_foreach(dev_list_entry2, audio_devices)
         {
+
+            audioPath = nullptr;
+            card_num = nullptr;
+            device_num = nullptr;
             path = udev_list_entry_get_name(dev_list_entry2);
             dev = udev_device_new_from_syspath(udev, path);
             audioPath = udev_device_get_devnode(dev);
@@ -368,7 +384,7 @@ int query_all_webcams(AppState* state)
             state->devices[nb_usb_cameras]->audioCard = card_num;
             state->devices[nb_usb_cameras]->audioDevice = device_num;
         
-            if(card_num && device_num)
+            if(card_num != nullptr && device_num != nullptr)
             {
                state->devices[nb_usb_cameras]->hw = (const char*)getAudioHW(state->devices[nb_usb_cameras]->audioCard, state->devices[nb_usb_cameras]->audioDevice);
             }
@@ -385,10 +401,10 @@ int query_all_webcams(AppState* state)
 
         cam = state->devices[i];
         spdlog::debug("   USB Path:      {}", cam->usbPath);
-        spdlog::debug("   Video Path:      {}", cam->videoPath);
-        spdlog::debug("   Audio Path:      {}", cam->audioPath);
-        spdlog::debug("   Card Number:      {}", *cam->audioCard);
-        spdlog::debug("   Device Number:      {}", *cam->audioDevice);
+        spdlog::debug("   Video Path:      {}", Utils::str_or_default(cam->videoPath, "[none]"));
+        spdlog::debug("   Audio Path:      {}", Utils::str_or_default(cam->audioPath, "[none]"));
+        spdlog::debug("   Card Number:      {}", (cam->audioCard != nullptr ? *cam->audioCard : -1));
+        spdlog::debug("   Device Number:      {}", (cam->audioDevice != nullptr ? *cam->audioDevice : -1));
         spdlog::debug("   Manufacturer:  {}", Utils::str_or_default(cam->manufacturer, "[none]"));
         spdlog::debug("   Product        {}", Utils::str_or_default(cam->product, "[none]"));
         spdlog::debug("   Vendor ID:     {}", Utils::str_or_default(cam->vendorID, "[none]"));
