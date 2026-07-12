@@ -1,0 +1,127 @@
+{
+   ffmpeg_suppression
+   Memcheck:Leak
+   ...
+   obj:*/libav*.so*
+}
+
+# Suppress all errors from SDL
+{
+   sdl_suppression
+   Memcheck:Leak
+   ...
+   obj:*/libSDL*.so*
+}
+
+# Suppress all errors from OpenGL / Mesa
+{
+   opengl_suppression
+   Memcheck:Leak
+   ...
+   obj:*/libGL.so*
+   obj:*/libEGL.so*
+   obj:*/libGLdispatch.so*
+   obj:*/libgallium_dri.so*
+   obj:*/i965_dri.so*
+   obj:*/radeonsi_dri.so*
+}
+
+# Suppress all errors from X11
+{
+   x11_suppression
+   Memcheck:Leak
+   ...
+   obj:*/libX11.so*
+   obj:*/libXext.so*
+   obj:*/libxcb.so*
+}
+
+#Suppress all errors from snd
+{
+   snd_suppression
+   Memcheck:Leak
+   ...
+   obj:*conf.so*
+}
+
+
+{
+  more_alsa_suppression  
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:parse*
+}
+{
+  more_alsa_suppression 2 
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:snd*
+}
+{
+   libudev_suppression
+   Memcheck:Leak
+   ...
+   obj:*/libudev.so*
+}
+{
+   libdbus_suppression
+   Memcheck:Leak
+   ...
+   obj:*/libdbus-1.so*
+}
+{
+   nvidia_suppression
+   Memcheck:Leak
+   ...
+   obj:*/libGLX_nvidia.so*   
+}
+{
+   nvidia_suppression
+   Memcheck:ReallocZero
+   ...
+   obj:*/libGLX_nvidia.so*   
+}
+{
+   dl_suppression_realloc
+   Memcheck:Leak
+   ...
+   fun:*dl*
+}
+{
+   dl_suppression_realloc
+   Memcheck:ReallocZero
+   ...
+   fun:*dl*
+}
+{
+   nvidia_suppression_badsize
+   Memcheck:BadSize
+   ...
+   obj:*/libGLX_nvidia.so*   
+}
+{
+   ffmpeg_suppression
+   Memcheck:Leak
+   ...
+   fun:av*
+}
+{
+   ffmpeg_suppression_addr4
+   Memcheck:Addr4
+   ...
+   fun:av*
+}
+{
+   ffmpeg_suppression_addr8
+   Memcheck:Addr8
+   ...
+   fun:av*
+}
+{
+   ffmpeg_suppression_free
+   Memcheck:Free
+   ...
+   fun:av*
+}

@@ -18,23 +18,23 @@ extern "C"
 
 struct OutputStream
 {
-    AVStream *stream;
-    AVCodecContext *codecContext;
+    AVStream *stream = nullptr;
+    AVCodecContext *codecContext = nullptr;
 
-    int64_t next_pts;
-    int samples_count;
-    AVRational src_time_base;
-    AVFrame *frame;
-    AVFrame *tmp_frame;
-    int width, height;
+    int64_t next_pts = 0;
+    int samples_count = 0;
+    AVRational src_time_base = {};
+    AVFrame *frame = nullptr;
+    AVFrame *tmp_frame = nullptr;
+    int width, height = 0;
 
-    AVPacket *tmp_packet;
+    AVPacket *tmp_packet = nullptr;
 
-    float t, tincr, tincr2;
+    float t, tincr, tincr2 = 0.0;
 
-    struct SwsContext *sws_ctx;
-    struct SwrContext *swr_ctx;
-    AVAudioFifo *audio_fifo;
+    struct SwsContext *sws_ctx = nullptr;
+    struct SwrContext *swr_ctx = nullptr;
+    AVAudioFifo *audio_fifo = nullptr;
 };
 
 class Muxor
@@ -45,8 +45,9 @@ private:
     struct OutputStream audio_stream;
     std::mutex mux_write_mutex;
 
-    const AVOutputFormat *fmt;
-    AVFormatContext *outputContext;
+    const AVOutputFormat *fmt = nullptr;
+    AVFormatContext *outputContext = nullptr;
+    bool initialized = false;
 
 public:
     Muxor(std::string filename);

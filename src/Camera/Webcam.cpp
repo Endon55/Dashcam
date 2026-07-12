@@ -2,6 +2,7 @@
 #include "../Settings.h"
 #include "Macros.h"
 
+#include <cstdlib>
 #include <string>
 #include <stdio.h>
 #include <chrono>
@@ -29,7 +30,7 @@ extern "C"
 
 
 
-Webcam::Webcam(cam_device *camera) : has_audio(camera->audioCard != NULL)
+Webcam::Webcam(cam_device *camera) : has_audio(camera->audioCard != nullptr)
 {
     this->device = camera;
     this->mute.store(Settings::isMuted());
@@ -84,6 +85,7 @@ int Webcam::init(int camIndex)
         spdlog::critical("Failed to initialize muxor");
         return ret;
     }
+    initialized = true;
     return ret;
 }
 
@@ -106,7 +108,7 @@ int Webcam::initVideo()
         return -1;
     }
 
-    AVDictionary *videoInputOptions = NULL;
+    AVDictionary *videoInputOptions = nullptr;
 
     char videoSize[32];
     snprintf(videoSize, sizeof(videoSize), "%dx%d", device->default_mode->width, device->default_mode->height);
@@ -167,7 +169,7 @@ int Webcam::initVideo()
         return -1;
     }
 
-    ret = avformat_find_stream_info(video.fmtContext, NULL);
+    ret = avformat_find_stream_info(video.fmtContext, nullptr);
     if (ret < 0)
     {
         spdlog::warn("Unable to fully probe stream info, continuing with available metadata: {}", av_err2str(ret));
@@ -181,7 +183,7 @@ int Webcam::initVideo()
     for (int i = 0; i < video.fmtContext->nb_streams; i++)
     {
         spdlog::debug("Stream {}", i);
-        AVCodecParameters *pLocalCodecParameters = NULL;
+        AVCodecParameters *pLocalCodecParameters = nullptr;
         pLocalCodecParameters = video.fmtContext->streams[i]->codecpar;
         spdlog::debug("AVStream->time_base before open coded {}/{}", video.fmtContext->streams[i]->time_base.num, video.fmtContext->streams[i]->time_base.den);
         spdlog::debug("AVStream->r_frame_rate before open coded {}/{}", video.fmtContext->streams[i]->r_frame_rate.num, video.fmtContext->streams[i]->r_frame_rate.den);
@@ -189,7 +191,7 @@ int Webcam::initVideo()
         spdlog::debug("AVStream->duration {}" PRId64, video.fmtContext->streams[i]->duration);
         const AVCodec *pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
 
-        if (pLocalCodec == NULL)
+        if (pLocalCodec == nullptr)
         {
             spdlog::debug("Failed to find local codec: {}", i);
             continue;
@@ -202,7 +204,7 @@ int Webcam::initVideo()
                 video.codecParams = pLocalCodecParameters;
                 video.codec = pLocalCodec;
                 AVDictionary *dict = video.fmtContext->streams[i]->metadata;
-                const AVDictionaryEntry *entry = NULL;
+                const AVDictionaryEntry *entry = nullptr;
                 spdlog::debug("Video Stream Metadata");
                 for (int j = 0; j < av_dict_count(dict); j++)
                 {
@@ -240,7 +242,7 @@ int Webcam::initVideo()
         return -1;
     }
 
-    if (avcodec_open2(video.codecContext, video.codec, NULL) < 0)
+    if (avcodec_open2(video.codecContext, video.codec, nullptr) < 0)
     {
         spdlog::critical("failed to open the video codec");
         return -1;
@@ -266,7 +268,7 @@ int Webcam::initVideo()
              video.codecContext->sample_aspect_ratio.num,
              video.codecContext->sample_aspect_ratio.den);
 
-    ret = avfilter_graph_create_filter(&video.sourceFilter, avfilter_get_by_name("buffer"), "in", args, NULL, video.filterGraph);
+    ret = avfilter_graph_create_filter(&video.sourceFilter, avfilter_get_by_name("buffer"), "in", args, nullptr, video.filterGraph);
     if (ret < 0)
     {
         spdlog::critical("failed to create buffer source: {}", av_err2str(ret));
@@ -302,7 +304,7 @@ int Webcam::initVideo()
         return -1;
     }
 
-    ret = avfilter_init_str(video.sinkFilter, NULL);
+    ret = avfilter_init_str(video.sinkFilter, nullptr);
     if (ret < 0)
     {
         spdlog::critical("failed to initialize buffer sink: {}", av_err2str(ret));
@@ -316,7 +318,7 @@ int Webcam::initVideo()
         return -1;
     }
 
-    ret = avfilter_init_str(video.flipFilter, NULL);
+    ret = avfilter_init_str(video.flipFilter, nullptr);
     if (ret < 0)
     {
         spdlog::critical("failed to initialize filter: {}", av_err2str(ret));
@@ -337,7 +339,7 @@ int Webcam::initVideo()
         return -1;
     }
 
-    ret = avfilter_graph_config(video.filterGraph, NULL);
+    ret = avfilter_graph_config(video.filterGraph, nullptr);
     if (ret < 0)
     {
         spdlog::critical("failed to configure filter graph: {}", av_err2str(ret));
@@ -378,15 +380,11 @@ int Webcam::initAudio()
         return -1;
     }
 
-
-
-
-    audio.hw = device->hw;
     snd_pcm_t * handle;
-    ret = snd_pcm_open(&handle, audio.hw, SND_PCM_STREAM_CAPTURE, 0);
+    ret = snd_pcm_open(&handle, device->hw, SND_PCM_STREAM_CAPTURE, 0);
     if(ret < 0)
     {
-        spdlog::critical("Failed to open device ({}) in alsa: {}", audio.hw, snd_strerror(ret));
+        spdlog::critical("Failed to open device ({}) in alsa: {}", device->hw, snd_strerror(ret));
         return ret;
     }
     
@@ -401,14 +399,14 @@ int Webcam::initAudio()
     spdlog::debug("Webcam Audio Channels Min: {}, Max: {}", min_channels, max_channels);
 
     unsigned int min_rate, max_rate;
-    snd_pcm_hw_params_get_rate_min(params, &min_rate, NULL);
-    snd_pcm_hw_params_get_rate_max(params, &max_rate, NULL);
+    snd_pcm_hw_params_get_rate_min(params, &min_rate, nullptr);
+    snd_pcm_hw_params_get_rate_max(params, &max_rate, nullptr);
     spdlog::debug("Webcam Audio Rate Min: {}, Max: {}", min_rate, max_rate);
 
     snd_pcm_close(handle);
 
     
-    AVDictionary *options = NULL;
+    AVDictionary *options = nullptr;
     
     char *sample_rate = (char*) malloc(sizeof(char) * 20);
     char *channels = (char*) malloc(sizeof(char) * 10);
@@ -420,7 +418,7 @@ int Webcam::initAudio()
     av_dict_set(&options, "sample_rate", sample_rate, 0);
     av_dict_set(&options, "channels", channels, 0);
 
-    ret = avformat_open_input(&audio.fmtContext, audio.hw, inputFormat, &options);
+    ret = avformat_open_input(&audio.fmtContext, device->hw, inputFormat, &options);
     av_dict_free(&options);
     if (ret < 0)
     {
@@ -443,7 +441,7 @@ int Webcam::initAudio()
     spdlog::debug("NB of streams: {}", audio.fmtContext->nb_streams);
     for (int i = 0; i < audio.fmtContext->nb_streams; i++)
     {
-        AVCodecParameters *pLocalCodecParameters = NULL;
+        AVCodecParameters *pLocalCodecParameters = nullptr;
         pLocalCodecParameters = audio.fmtContext->streams[i]->codecpar;
         spdlog::debug("AVStream->time_base before open coded {}/{}", audio.fmtContext->streams[i]->time_base.num, audio.fmtContext->streams[i]->time_base.den);
         spdlog::debug("AVStream->r_frame_rate before open coded {}/{}", audio.fmtContext->streams[i]->r_frame_rate.num, audio.fmtContext->streams[i]->r_frame_rate.den);
@@ -452,7 +450,7 @@ int Webcam::initAudio()
 
         const AVCodec *pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
 
-        if (pLocalCodec == NULL)
+        if (pLocalCodec == nullptr)
         {
             spdlog::critical("Failed to find local codec");
             continue;
@@ -495,7 +493,7 @@ int Webcam::initAudio()
         return -1;
     }
 
-    if (avcodec_open2(audio.codecContext, audio.codec, NULL) < 0)
+    if (avcodec_open2(audio.codecContext, audio.codec, nullptr) < 0)
     {
         spdlog::critical("Failed to open the codec");
         return -1;
@@ -519,7 +517,7 @@ int Webcam::initAudio()
                               audio.codecContext->sample_fmt,
                               audio.codecContext->sample_rate,
                               0,
-                              NULL);
+                              nullptr);
     if (ret < 0 || !audio.swr_ctx)
     {
         spdlog::critical("failed to allocate swr context: %s", av_err2str(ret));
@@ -538,6 +536,11 @@ int Webcam::initAudio()
 
 int Webcam::processVideoFrame(SDL_Texture *texture)
 {
+    if(!initialized)
+    {
+        spdlog::critical("Didn't initialize webcam before trying to use it.");
+        return -1;
+    }
     // Keep each submitted frame aligned with the source filter's negotiated properties.
     const AVColorRange targetColorRange =
         video.codecContext->color_range != AVCOL_RANGE_UNSPECIFIED ? video.codecContext->color_range : AVCOL_RANGE_MPEG;
@@ -609,9 +612,9 @@ int Webcam::processVideoFrame(SDL_Texture *texture)
                                              video.codecContext->height,
                                              AV_PIX_FMT_YUV420P,
                                              SWS_BILINEAR,
-                                             NULL,
-                                             NULL,
-                                             NULL); */
+                                             nullptr,
+                                             nullptr,
+                                             nullptr); */
 
         video.sws_ctx = sws_getCachedContext(video.sws_ctx,
                                              display_frame->width,
@@ -621,9 +624,9 @@ int Webcam::processVideoFrame(SDL_Texture *texture)
                                              targetHeight,
                                              AV_PIX_FMT_YUV420P,
                                              SWS_BILINEAR,
-                                             NULL,
-                                             NULL,
-                                             NULL);
+                                             nullptr,
+                                             nullptr,
+                                             nullptr);
 
         if (!video.sws_ctx)
         {
@@ -695,7 +698,7 @@ int Webcam::processVideoFrame(SDL_Texture *texture)
         spdlog::critical("Error while muxing frame: {}", av_err2str(ret));
     }
 
-    SDL_UpdateYUVTexture(texture, NULL,
+    SDL_UpdateYUVTexture(texture, nullptr,
                          filtered_frame->data[0], filtered_frame->linesize[0],
                          filtered_frame->data[1], filtered_frame->linesize[1],
                          filtered_frame->data[2], filtered_frame->linesize[2]);
@@ -704,12 +707,23 @@ int Webcam::processVideoFrame(SDL_Texture *texture)
 }
 int Webcam::muteAudioPlayback(bool mute)
 {
+    if(!initialized)
+    {
+        spdlog::critical("Didn't initialize webcam before trying to use it.");
+        return -1;
+    }
     this->mute.store(mute);
     return 0;
 }
 
 int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
 {
+
+    if(!initialized)
+    {
+        spdlog::critical("Didn't initialize webcam before trying to use it.");
+        return -1;
+    }
     int ret = av_read_frame(audio.fmtContext, audio.packet);
     if (ret < 0)
     {
@@ -767,7 +781,7 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
             continue;
         }
 
-        int requiredBufferSize = av_samples_get_buffer_size(NULL, outChannels, dst_nb_samples, AV_SAMPLE_FMT_S16, 1);
+        int requiredBufferSize = av_samples_get_buffer_size(nullptr, outChannels, dst_nb_samples, AV_SAMPLE_FMT_S16, 1);
         if (requiredBufferSize < 0)
         {
             spdlog::critical("Failed to compute SDL output buffer size: {}", av_err2str(requiredBufferSize));
@@ -801,7 +815,7 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
             return -1;
         }
 
-        int data_size = av_samples_get_buffer_size(NULL, outChannels, convertedSamples, AV_SAMPLE_FMT_S16, 1);
+        int data_size = av_samples_get_buffer_size(nullptr, outChannels, convertedSamples, AV_SAMPLE_FMT_S16, 1);
         if (data_size < 0)
         {
             spdlog::critical("Failed to compute SDL queued audio size: {}", av_err2str(data_size));
@@ -826,8 +840,17 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
 
 void Webcam::audioCaptureLoop()
 {
+    if(!initialized)
+    {
+        spdlog::critical("Didn't initialize webcam before trying to start the audio loop.");
+        return ;
+    }
     audioThreadRunning.store(true);
-
+    if(audioStreamTarget == nullptr)
+    {
+        spdlog::critical("Didn't initialize audio stream before trying to start the loop.");
+        return ;
+    }
     while (!audioThreadStopRequested.load())
     {
         int ret = processAudioFrame(audioStreamTarget);
@@ -847,6 +870,11 @@ void Webcam::audioCaptureLoop()
 
 int Webcam::startAudioCapture(SDL_AudioStream *audioStream)
 {
+    if(!initialized)
+    {
+        spdlog::critical("Didn't initialize webcam before trying to use it.");
+        return -1;
+    }
 
     if (audioThreadRunning.load())
     {
@@ -862,6 +890,12 @@ int Webcam::startAudioCapture(SDL_AudioStream *audioStream)
 
 int Webcam::stopAudioCapture()
 {
+    if(!initialized)
+    {
+        spdlog::critical("Didn't initialize webcam before trying to use it.");
+        return -1;
+    }
+
     audioThreadStopRequested.store(true);
     if (audioThread.joinable())
     {
@@ -873,6 +907,12 @@ int Webcam::stopAudioCapture()
 
 int Webcam::close()
 {
+    if(!initialized)
+    {
+        spdlog::critical("Didn't initialize webcam before trying to use it.");
+        return -1;
+    }
+
     spdlog::debug("Closing Webcam: {}", device->videoPath);
     int ret = 0;
     stopAudioCapture();
@@ -883,7 +923,6 @@ int Webcam::close()
         spdlog::critical("Failed to close webcam video");
         ret = videoRet;
     }
-
     int audioRet = closeAudio();
     if (audioRet < 0)
     {
@@ -893,8 +932,7 @@ int Webcam::close()
             ret = audioRet;
         }
     }
-
-    if (muxor != NULL)
+    if (muxor != nullptr)
     {
         int muxorRet = muxor->close();
         if (muxorRet < 0)
@@ -905,8 +943,9 @@ int Webcam::close()
                 ret = muxorRet;
             }
         }
+
         delete muxor;
-        muxor = NULL;
+        muxor = nullptr;
     }
 
     return ret;
@@ -914,70 +953,96 @@ int Webcam::close()
 
 int Webcam::closeVideo()
 {
-
-    if (video.fmtContext != NULL)
+    if (video.fmtContext != nullptr)
     {
         avformat_close_input(&video.fmtContext);
+        video.fmtContext = nullptr;
     }
-    if (video.packet != NULL)
+    if(video.codecParams != nullptr)
     {
-        av_packet_free(&video.packet);
+        avcodec_parameters_free(&audio.codecParams);
+        video.codecParams = nullptr;
     }
-    if (video.frame != NULL)
-    {
-        av_frame_free(&video.frame);
-    }
-    if (video.yuv_frame != NULL)
-    {
-        av_frame_free(&video.yuv_frame);
-    }
-    if (video.filtered_frame != NULL)
-    {
-        av_frame_free(&video.filtered_frame);
-    }
-    if (video.sws_ctx != NULL)
-    {
-        sws_freeContext(video.sws_ctx);
-    }
-    if (video.codecContext != NULL)
+    if (video.codecContext != nullptr)
     {
         avcodec_free_context(&video.codecContext);
+        video.codecContext = nullptr;
     }
-    if (video.filterGraph != NULL)
+    if (video.packet != nullptr)
+    {
+        av_packet_free(&video.packet);
+        video.packet= nullptr;
+    }
+    if (video.frame != nullptr)
+    {
+        av_frame_free(&video.frame);
+        video.frame= nullptr;
+    }
+    if (video.sws_ctx != nullptr)
+    {
+        sws_free_context(&video.sws_ctx);
+        video.sws_ctx = nullptr;
+    }
+    if (video.yuv_frame != nullptr)
+    {
+        av_frame_free(&video.yuv_frame);
+        video.yuv_frame = nullptr;
+    }
+    if (video.filtered_frame != nullptr)
+    {
+        av_frame_free(&video.filtered_frame);
+        video.filtered_frame = nullptr;
+    }
+    if (video.filterGraph != nullptr)
     {
         avfilter_graph_free(&video.filterGraph);
+        video.sourceFilter = nullptr;
+        video.sinkFilter = nullptr;
+        video.flipFilter = nullptr;
+        video.filterGraph = nullptr;
     }
     return 0;
 }
 
 int Webcam::closeAudio()
 {
-    if (audio.fmtContext != NULL)
+    if (audio.fmtContext != nullptr)
     {
         avformat_close_input(&audio.fmtContext);
+        audio.fmtContext = nullptr;
     }
-    if (audio.packet != NULL)
+    if(audio.codecParams != nullptr)
     {
-        av_packet_free(&audio.packet);
+        avcodec_parameters_free(&audio.codecParams);
+        audio.codecParams = nullptr;
     }
-    if (audio.frame != NULL)
-    {
-        av_frame_free(&audio.frame);
-    }
-    if (audio.codecContext != NULL)
+    if (audio.codecContext != nullptr)
     {
         avcodec_free_context(&audio.codecContext);
+        audio.codecContext = nullptr;
     }
-    if (audio.swr_ctx != NULL)
+    if (audio.packet != nullptr)
+    {
+        av_packet_free(&audio.packet);
+        audio.packet = nullptr;
+    }
+    if (audio.frame != nullptr)
+    {
+        av_frame_free(&audio.frame);
+        audio.frame = nullptr;
+    }
+    if (audio.swr_ctx != nullptr)
     {
         swr_free(&audio.swr_ctx);
+        audio.swr_ctx = nullptr;
     }
     av_channel_layout_uninit(&audio.out_ch_layout);
-    if (audio.out_buf != NULL)
+    if (audio.out_buf != nullptr)
     {
         av_free(audio.out_buf);
-        audio.out_buf = NULL;
+        free((void *)audio.out_buf);
         audio.out_buf_size = 0;
+        audio.out_buf = nullptr;
     }
 
     return 0;

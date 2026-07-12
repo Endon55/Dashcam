@@ -6,68 +6,70 @@
 #include "FileIO.h"
 #include <fstream>
 #include <string.h>
+#include "memory.h"
+
 
 int Config::load_cam_configs(AppState* state)
 {
     std::filesystem::path configPath = FileIO::getCamConfigFile();
     spdlog::info("Loading configs");
-
-    toml::table configToml;
-
+    toml::table config;
     try
     {
-        configToml = toml::parse_file(FileIO::getCamConfigFile().string());
+        config = toml::parse_file(FileIO::getCamConfigFile().string());
     }
     catch (const toml::parse_error &e)
     {
         std::cerr << e.what() << '\n';
         spdlog::critical("Failed to parse Cam Config file.");
-        return -1;
+        return -1; 
     }
     int counter = 0;
-    state->configs = (cam_config**)malloc(sizeof(cam_config*) * MAX_CAMS);
-
     while(true)
     {
-        toml::table* entry = configToml[std::to_string(counter)].as_table();
+    
+        toml::table* entry = config[std::to_string(counter)].as_table();
 
         if(!entry)
         {
             spdlog::debug("{} configs loaded", counter);
             break;
         }
-        cam_config* config = (cam_config*)malloc(sizeof(cam_config));
-        
-        config->manufacturer = str_or_null("manufacturer", *entry);
-        config->product = str_or_null("product", *entry);
-        config->productID= str_or_null("productID", *entry);
-        config->serialNumber = str_or_null("serialNumber", *entry);
-        config->vendorID = str_or_null("vendorID", *entry);
-        toml::table* def_cap_mode = (*entry)["default_capture_mode"].as_table();
-        toml::array* cap_modes = (*entry)["capture_modes"].as_array();
-
-        config->default_mode = parse_capture_mode(*def_cap_mode);
-        int nb_cap_modes = cap_modes->size();
-        config->cap_modes = (const capture_mode**)malloc(sizeof(capture_mode*) * nb_cap_modes);
-        for(int i = 0; i < nb_cap_modes; i++)
+        const char* serialNumber = str_or_null("serialNumber", *entry);
+        for(int i = 0; i < state->nb_cams; i++)
         {
-            toml::table* cap_mode = (*cap_modes)[i].as_table();
-            if(cap_mode)
+
+            cam_device* cam = state->devices[i];
+            if(strcmp(cam->serialNumber, serialNumber) == 0)
             {
+                cam->config_index = new_int(i);
 
-                config->cap_modes[i] = parse_capture_mode(*cap_mode);
+                toml::table* def_cap_mode = (*entry)["default_capture_mode"].as_table();
+                toml::array* cap_modes = (*entry)["capture_modes"].as_array();
+
+                cam->default_mode = parse_capture_mode(*def_cap_mode);
+                int nb_cap_modes = cap_modes->size();
+                cam->cap_modes = (const capture_mode**)dc_malloc(sizeof(capture_mode*) * nb_cap_modes);
+                for(int i = 0; i < nb_cap_modes; i++)
+                {
+                    toml::table* cap_mode = (*cap_modes)[i].as_table();
+                    if(cap_mode)
+                    {
+
+                        cam->cap_modes[i] = parse_capture_mode(*cap_mode);
+                    }
+                    else{
+                        spdlog::critical("error in parsing configs, some kind of size mismatch: i-{} total-{}", i, nb_cap_modes);
+                        break;
+                    }
+                }
+                cam->nb_cap_modes = new_int(nb_cap_modes);
             }
-            else{
-                spdlog::critical("error in parsing configs, some kind of size mismatch: i-{} total-{}", i, nb_cap_modes);
-                break;
-            }
+
         }
-        config->nb_cap_modes = new int(nb_cap_modes);
-        state->configs[counter] = config;
-        counter++; 
-
+        
+       counter++; 
     }
-    state->nb_configs = counter;
     return 0;
 }
 int Config::save_cam_configs(AppState* state)
@@ -124,46 +126,30 @@ int Config::save_cam_configs(AppState* state)
 
     return 0;
 }
-
-cam_config* Config::get_cam_config(AppState* state, cam_device* cam)
-{
-   if(state->configs == nullptr || cam == nullptr || cam->serialNumber == nullptr)
-   {
-       return nullptr;
-   }
-
-   for(int i = 0; i < state->nb_configs; i++)
-   {
-     //add support for checking vendorID, prodctID etc. 
-     cam_config* cnfg = state->configs[i];
-
-       if(state->configs[i]->serialNumber == nullptr)
-       {
-            continue;
-       }
-       else if(cam->serialNumber == state->configs[i]->serialNumber || 
-               strcmp(cam->serialNumber, state->configs[i]->serialNumber) == 0)
-       {
-           return state->configs[i];
-       }
-   }
-   return nullptr;
-}
 const char* Config::str_or_null(std::string key, toml::table table)
 {
     std::optional<std::string> keyopt = table[key].value<std::string>();
     if(keyopt)
     {
-        return strdup(keyopt.value().c_str());
+        return std::move(dc_strdup(keyopt.value().c_str()));
     }
     return nullptr;
 }
+
+
 const capture_mode* Config::parse_capture_mode(toml::table table)
 {
-    capture_mode* mode = (capture_mode*)malloc(sizeof(capture_mode));
+    capture_mode* mode = (capture_mode*)dc_malloc(sizeof(capture_mode));
     mode->pixelFmtStr = str_or_null("format-str", table);
     mode->width = table["width"].value_or(-1);
     mode->height = table["height"].value_or(-1);
+    if(mode->width == -1 || mode->height == -1)
+    {
+        dc_free((void*)mode->pixelFmtStr);
+        dc_free((void*)mode);
+        spdlog::info("Saved capture mode was invalid");
+        return nullptr;
+    }
     mode->pixelFormat = table["format"].value_or(0u);
     mode->fps = table["fps"].value_or(0.0);
     return mode;

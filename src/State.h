@@ -7,6 +7,8 @@
 #include <SDL3/SDL_iostream.h>
 #include "Camera/Camera.h"
 #include "Camera/Webcam.h"
+#include <toml++/toml.hpp>
+
 struct AppState
 {
     SDL_Window *window;
@@ -20,8 +22,6 @@ struct AppState
     SDL_Texture** cam_textures;
     cam_device** devices;
     int nb_cams;
-    cam_config** configs;
-    int nb_configs;
     Webcam **webcams;
 };
 

@@ -26,34 +26,33 @@ using namespace std;
 struct Video
 {
     int stream_index;
-    AVFormatContext *fmtContext;
-    const AVCodec *codec;
-    AVCodecContext *codecContext;
-    AVCodecParameters *codecParams;
-    AVFrame *frame;
-    AVFrame *yuv_frame;
-    AVFrame *filtered_frame;
-    AVPacket *packet;
-    SwsContext *sws_ctx;
-    AVFilterGraph *filterGraph;
-    AVFilterContext *sourceFilter;
-    AVFilterContext *sinkFilter;
-    AVFilterContext *flipFilter;
+    AVFormatContext *fmtContext = nullptr;
+    const AVCodec *codec = nullptr;
+    AVCodecContext *codecContext = nullptr;
+    AVCodecParameters *codecParams = nullptr;
+    AVFrame *frame = nullptr;
+    AVFrame *yuv_frame = nullptr;
+    AVFrame *filtered_frame = nullptr;
+    AVPacket *packet = nullptr;
+    SwsContext *sws_ctx = nullptr;
+    AVFilterGraph *filterGraph = nullptr;
+    AVFilterContext *sourceFilter = nullptr;
+    AVFilterContext *sinkFilter = nullptr;
+    AVFilterContext *flipFilter = nullptr;
 };
 struct Audio
 {
     int stream_index;
-    const char* hw;
-    AVFormatContext *fmtContext;
-    const AVCodec *codec;
-    AVCodecParameters *codecParams;
-    AVCodecContext *codecContext;
-    AVFrame *frame;
-    AVPacket *packet;
-    AVStream *stream;
-    SwrContext *swr_ctx;
+    AVFormatContext *fmtContext = nullptr;
+    const AVCodec *codec = nullptr;
+    AVCodecParameters *codecParams = nullptr;
+    AVCodecContext *codecContext = nullptr;
+    AVFrame *frame = nullptr;
+    AVPacket *packet = nullptr;
+    AVStream *stream = nullptr;
+    SwrContext *swr_ctx = nullptr;
     AVChannelLayout out_ch_layout;
-    uint8_t *out_buf;
+    uint8_t *out_buf = nullptr;
     int out_buf_size;
 };
 
@@ -86,6 +85,7 @@ private:
     int flushRecorderEncoder(AVCodecContext *encContext, AVStream *stream);
 
 private:
+    bool initialized = false;
     std::thread audioThread;
     std::atomic<bool> audioThreadRunning{false};
     std::atomic<bool> audioThreadStopRequested{false};

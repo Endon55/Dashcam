@@ -39,9 +39,9 @@ int Muxor::init(int width, int height, AVRational frameRate)
     spdlog::debug("Initializing Muxor");
     const AVCodec *audio_codec, *video_codec;
     int ret;
-    AVDictionary *opt = NULL;
+    AVDictionary *opt = nullptr;
 
-    avformat_alloc_output_context2(&outputContext, NULL, "MP4", filename.c_str());
+    avformat_alloc_output_context2(&outputContext, nullptr, "MP4", filename.c_str());
 
     if (!outputContext)
     {
@@ -115,7 +115,7 @@ int Muxor::init(int width, int height, AVRational frameRate)
         spdlog::critical("Error while writing output header: {}", av_err2str(ret));
         return -1;
     }
-
+    initialized = true;
     return 0;
 }
 
@@ -127,9 +127,9 @@ AVFrame *Muxor::alloc_frame(enum AVPixelFormat pix_fmt, int width, int height)
     if (!frame)
     {
         spdlog::critical("Failed to allocate frame memory");
-        return NULL;
+        return nullptr;
     }
-    frame->format = pix_fmt;
+   frame->format = pix_fmt;
     frame->width = width;
     frame->height = height;
 
@@ -137,7 +137,7 @@ AVFrame *Muxor::alloc_frame(enum AVPixelFormat pix_fmt, int width, int height)
     if (ret < 0)
     {
         spdlog::critical("Could not allocate frame data");
-        return NULL;
+        return nullptr;
     }
     return frame;
 }
@@ -149,7 +149,7 @@ AVFrame *Muxor::alloc_audio_frame(enum AVSampleFormat sample_fmt, const AVChanne
     if (!frame)
     {
         spdlog::critical("Failed to allocate audio frame memory");
-        return NULL;
+        return nullptr;
     }
     frame->format = sample_fmt;
     av_channel_layout_copy(&frame->ch_layout, channel_layout);
@@ -161,7 +161,7 @@ AVFrame *Muxor::alloc_audio_frame(enum AVSampleFormat sample_fmt, const AVChanne
         if (av_frame_get_buffer(frame, 0) < 0)
         {
             spdlog::critical("Could not allocate audio buffer");
-            return NULL;
+            return nullptr;
         }
     }
     return frame;
@@ -175,7 +175,7 @@ int Muxor::open_audio(AVFormatContext *fmtContext, const AVCodec *codec, OutputS
     int ret;
     int nb_samples;
     AVCodecContext *codecContext = stream->codecContext;
-    AVDictionary *opt = NULL;
+    AVDictionary *opt = nullptr;
 
     av_dict_copy(&opt, opt_args, 0);
 
@@ -211,7 +211,7 @@ int Muxor::open_audio(AVFormatContext *fmtContext, const AVCodec *codec, OutputS
     }
 
     // Initialize when the first captured frame arrives so input format/rate/layout are accurate.
-    stream->swr_ctx = NULL;
+    stream->swr_ctx = nullptr;
     stream->audio_fifo = av_audio_fifo_alloc(codecContext->sample_fmt,
                                              codecContext->ch_layout.nb_channels,
                                              nb_samples * 4);
@@ -230,7 +230,7 @@ int Muxor::open_video(AVFormatContext *fmtContext, const AVCodec *codec, OutputS
 {
     int ret;
     AVCodecContext *codecContext = stream->codecContext;
-    AVDictionary *opt = NULL;
+    AVDictionary *opt = nullptr;
 
     av_dict_copy(&opt, opt_args, 0);
     if (codecContext->codec_id == AV_CODEC_ID_H264 || codecContext->codec_id == AV_CODEC_ID_HEVC)
@@ -252,7 +252,7 @@ int Muxor::open_video(AVFormatContext *fmtContext, const AVCodec *codec, OutputS
         spdlog::critical("Failed to initialize frame");
         return -1;
     }
-    stream->tmp_frame = NULL;
+    stream->tmp_frame = nullptr;
     if (codecContext->pix_fmt != AV_PIX_FMT_YUV420P)
     {
         stream->tmp_frame = alloc_frame(AV_PIX_FMT_YUV420P, codecContext->width, codecContext->height);
@@ -275,6 +275,11 @@ int Muxor::open_video(AVFormatContext *fmtContext, const AVCodec *codec, OutputS
 
 int Muxor::write_audio_frame(AVFrame *frame)
 {
+    if(!initialized)
+    {
+        spdlog::critical("Didn't initialize Muxor before trying to use it.");
+        return -1;
+    }
     int ret;
     if (frame)
     {
@@ -296,7 +301,7 @@ int Muxor::write_audio_frame(AVFrame *frame)
                                       (AVSampleFormat)frame->format,
                                       inSampleRate,
                                       0,
-                                      NULL);
+                                      nullptr);
             if (ret < 0 || !audio_stream.swr_ctx)
             {
                 spdlog::critical("Failed to allocate mux audio resampler: {}", av_err2str(ret));
@@ -325,9 +330,9 @@ int Muxor::write_audio_frame(AVFrame *frame)
         }
 
         const int outChannels = audio_stream.codecContext->ch_layout.nb_channels;
-        uint8_t **convertedData = NULL;
+        uint8_t **convertedData = nullptr;
         ret = av_samples_alloc_array_and_samples(&convertedData,
-                                                 NULL,
+                                                 nullptr,
                                                  outChannels,
                                                  dst_nb_samples,
                                                  audio_stream.codecContext->sample_fmt,
@@ -388,7 +393,7 @@ int Muxor::write_audio_frame(AVFrame *frame)
     }
 
     const int encoderFrameSize = audio_stream.codecContext->frame_size > 0 ? audio_stream.codecContext->frame_size : 1024;
-    bool draining = (frame == NULL);
+    bool draining = (frame == nullptr);
     while (av_audio_fifo_size(audio_stream.audio_fifo) >= encoderFrameSize || (draining && av_audio_fifo_size(audio_stream.audio_fifo) > 0))
     {
         int nbOut = encoderFrameSize;
@@ -447,7 +452,7 @@ int Muxor::write_audio_frame(AVFrame *frame)
 
     if (!frame)
     {
-        return write_frame(outputContext, audio_stream.codecContext, audio_stream.stream, NULL, audio_stream.tmp_packet);
+        return write_frame(outputContext, audio_stream.codecContext, audio_stream.stream, nullptr, audio_stream.tmp_packet);
     }
 
     return 0;
@@ -455,6 +460,11 @@ int Muxor::write_audio_frame(AVFrame *frame)
 
 int Muxor::write_video_frame(AVFrame *frame, AVRational srcTimeBase)
 {
+    if(!initialized)
+    {
+        spdlog::critical("Didn't initialize Muxor before trying to use it.");
+        return -1;
+    }
     if (!frame)
     {
         return 0;
@@ -539,7 +549,7 @@ int Muxor::add_stream(OutputStream *stream, AVFormatContext *fmtContext, const A
         spdlog::critical("Failed to allocate memory for packet");
         return -1;
     }
-    stream->stream = avformat_new_stream(fmtContext, NULL);
+    stream->stream = avformat_new_stream(fmtContext, nullptr);
     if (!stream->stream)
     {
         spdlog::critical("Failed to allocate memory for stream");
@@ -562,12 +572,12 @@ int Muxor::add_stream(OutputStream *stream, AVFormatContext *fmtContext, const A
     case AVMEDIA_TYPE_AUDIO:
     {
         const AVSampleFormat *sample_fmt;
-        ret = avcodec_get_supported_config(codecContext, *codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, (const void **)&sample_fmt, NULL);
+        ret = avcodec_get_supported_config(codecContext, *codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, (const void **)&sample_fmt, nullptr);
         codecContext->sample_fmt = ret >= 0 ? sample_fmt[0] : AV_SAMPLE_FMT_FLTP;
         codecContext->bit_rate = 64000;
         codecContext->sample_rate = 44100;
         int *sample_rate;
-        ret = avcodec_get_supported_config(codecContext, *codec, AV_CODEC_CONFIG_SAMPLE_RATE, 0, (const void **)&sample_rate, NULL);
+        ret = avcodec_get_supported_config(codecContext, *codec, AV_CODEC_CONFIG_SAMPLE_RATE, 0, (const void **)&sample_rate, nullptr);
         if (ret >= 0)
         {
             codecContext->sample_rate = sample_rate[0];
@@ -651,16 +661,16 @@ int Muxor::close()
     }
 
     int ret = 0;
-    if (outputContext->pb != NULL)
+    if (outputContext->pb != nullptr)
     {
-        int audioFlushRet = write_audio_frame(NULL);
+        int audioFlushRet = write_audio_frame(nullptr);
         if (audioFlushRet < 0)
         {
             spdlog::critical("Failed to flush audio encoder");
             ret = audioFlushRet;
         }
 
-        int videoFlushRet = write_frame(outputContext, video_stream.codecContext, video_stream.stream, NULL, video_stream.tmp_packet);
+        int videoFlushRet = write_frame(outputContext, video_stream.codecContext, video_stream.stream, nullptr, video_stream.tmp_packet);
         if (videoFlushRet < 0)
         {
             spdlog::critical("Failed to flush video encoder");
@@ -680,20 +690,20 @@ int Muxor::close()
     close_stream(&video_stream);
     close_stream(&audio_stream);
 
-    if (!(outputContext->oformat->flags & AVFMT_NOFILE) && outputContext->pb != NULL)
+    if (!(outputContext->oformat->flags & AVFMT_NOFILE) && outputContext->pb != nullptr)
     {
         avio_closep(&outputContext->pb);
     }
 
     avformat_free_context(outputContext);
-    outputContext = NULL;
+    outputContext = nullptr;
 
     return ret < 0 ? ret : 0;
 }
 
 int Muxor::close_stream(OutputStream *stream)
 {
-    if (stream == NULL)
+    if (stream == nullptr)
     {
         return 0;
     }
@@ -717,12 +727,12 @@ int Muxor::close_stream(OutputStream *stream)
     if (stream->audio_fifo)
     {
         av_audio_fifo_free(stream->audio_fifo);
-        stream->audio_fifo = NULL;
+        stream->audio_fifo = nullptr;
     }
     if (stream->sws_ctx)
     {
         sws_freeContext(stream->sws_ctx);
-        stream->sws_ctx = NULL;
+        stream->sws_ctx = nullptr;
     }
     if (stream->codecContext)
     {

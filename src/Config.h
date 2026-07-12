@@ -10,5 +10,5 @@ namespace Config
     const capture_mode* parse_capture_mode(toml::table table);
     int load_cam_configs(AppState* state);
     int save_cam_configs(AppState* state);
-    cam_config* get_cam_config(AppState* app_state, cam_device* cam);
+    int get_cam_config(AppState* app_state, cam_device* cam);
 }

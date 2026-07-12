@@ -3,6 +3,7 @@
 #define MAX_CAP_MODES 100
 #define MAX_CAMS 10
 
+
 struct capture_mode
 {
     int width = 0;
@@ -28,24 +29,9 @@ struct cam_device
     const capture_mode *default_mode;
     const capture_mode **cap_modes;
     const int *nb_cap_modes;
+    const int *config_index;
 };
 
-
-struct cam_config
-{
-    int index;
-    bool enabled;
-
-    const char *manufacturer;
-    const char *product;
-    const char *vendorID;
-    const char *productID;
-    const char *serialNumber;
-
-    const capture_mode *default_mode;
-    const capture_mode **cap_modes;
-    const int *nb_cap_modes;
-};
-
-
+void camera_free(cam_device* camera);
+void capture_mode_free(capture_mode* mode);
 

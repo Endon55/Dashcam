@@ -20,7 +20,10 @@ Utils.h
 Utils.cpp
 State.h
 UI.h
-UI.cpp)
+UI.cpp
+memory.h
+memory.cpp
+)
 
 
 add_library(source ${sources})

@@ -9,7 +9,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
 {
     // SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO))
+    if (!SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -115,22 +115,6 @@ SDL_AppResult SDL_quit(AppState *app_state)
     ImGui_ImplSDLRenderer3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
-
-    /* if (app_state->texture != NULL)
-    {
-        SDL_DestroyTexture(app_state->texture);
-    } */
-
-    if (app_state->audio_stream != NULL)
-    {
-        SDL_DestroyAudioStream(app_state->audio_stream);
-    }
-
-    if (app_state->audio_spec != NULL)
-    {
-        free(app_state->audio_spec);
-    }
-    free(app_state);
 
     return SDL_APP_SUCCESS;
 }

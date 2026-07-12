@@ -1,5 +1,6 @@
 #include "WebcamUtils.h"
 #include "../Config.h"
+#include "../memory.h"
 
 #include <errno.h>
 #include "../Utils.h"
@@ -127,26 +128,17 @@ int query_all_capture_modes(AppState* state) {
     for (int i = 0; i < state->nb_cams; i++)
     {
         cam_device* device = state->devices[i];
-        cam_config* config = Config::get_cam_config(state, device);
-
-        if(config == nullptr)
+        if(device->cap_modes == nullptr)
         {
-            spdlog::debug("No Cached config found, querying the device");
-            ret = query_capture_modes(device);
-            if (ret < 0)
-            {
-                spdlog::critical("Failed to query the capture modes");
-                return ret;
-            }
+            continue;
         }
-        else{
-            device->default_mode = config->default_mode;
-            device->cap_modes = config->cap_modes;
-            device->nb_cap_modes = config->nb_cap_modes;
+        spdlog::debug("No Cached config found, querying the device");
+        ret = query_capture_modes(device);
+        if (ret < 0)
+        {
+            spdlog::critical("Failed to query the capture modes");
+            return ret;
         }
-        spdlog::debug("Camera: {}", i);
-        Utils::log_cap_mode(state->devices[i]->default_mode);
-
     }
     return 0;
 }
@@ -157,19 +149,19 @@ int query_capture_modes(cam_device* device)
     {
         return -1;
     }
-    struct v4l2_capability *camcap = (v4l2_capability *)malloc(sizeof(v4l2_capability));
+    struct v4l2_capability *camcap = (v4l2_capability *)dc_malloc(sizeof(v4l2_capability));
     int ret = xioctl(fd, VIDIOC_QUERYCAP, camcap);
     if (ret < 0)
     {
         spdlog::critical("Xioctl Failed: {}", strerror(errno));
-        free(camcap);
+        dc_free(camcap);
         close(fd);
         return -1;
     }
 
 
 
-    device->cap_modes = (const capture_mode**)malloc(sizeof(capture_mode*) * MAX_CAP_MODES);
+    device->cap_modes = (const capture_mode**)dc_malloc(sizeof(capture_mode*) * MAX_CAP_MODES);
 
     v4l2_fmtdesc fmtDesc = {};
     fmtDesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -192,7 +184,7 @@ int query_capture_modes(cam_device* device)
         while (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frameSize) == 0)
         {
 
-            capture_mode* mode = (capture_mode*)malloc(sizeof(capture_mode));
+            capture_mode* mode = (capture_mode*)dc_malloc(sizeof(capture_mode));
 
             if(fmtDesc.pixelformat == V4L2_PIX_FMT_MJPEG)
             {
@@ -243,7 +235,7 @@ int query_all_webcams(AppState* state)
 {
 
     int ret = 0;
-    state->devices = (cam_device **)malloc(sizeof(cam_device*) * MAX_CAMS);
+    state->devices = (cam_device **)dc_malloc(sizeof(cam_device*) * MAX_CAMS);
     int nb_usb_cameras = 0;
 
     udev *udev;
@@ -370,7 +362,7 @@ int query_all_webcams(AppState* state)
                 continue;
             }
 
-            state->devices[nb_usb_cameras] = (cam_device*)malloc(sizeof(cam_device));
+            state->devices[nb_usb_cameras] = (cam_device*)dc_malloc(sizeof(cam_device));
 
             state->devices[nb_usb_cameras]->usbPath = usbPath;
             state->devices[nb_usb_cameras]->videoPath = videoPath;
@@ -418,7 +410,7 @@ int query_all_webcams(AppState* state)
 // PlugHW is the alternate mode but I dont think I care about that.
 char *getAudioHW(const int* card, const int* device)
 {
-    char *hw = (char*)malloc(sizeof(char) * 12);
+    char *hw = (char*)dc_malloc(sizeof(char) * 12);
 
     snprintf(hw, sizeof(hw), "hw:%d,%d", *card, *device);
     spdlog::debug("AudioHW: {}", hw);
