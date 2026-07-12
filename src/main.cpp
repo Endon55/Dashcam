@@ -85,6 +85,12 @@ int main(int argc, char **argv)
         goto cleanup;
     }
     ret = Config::load_cam_configs(app_state);
+    if(ret < 0)
+    {
+        spdlog::critical("Critical error when parsing configs");
+        exitCode = -1;
+        goto cleanup;
+    }
     if (app_state->nb_cams <= 0)
     {
         spdlog::critical("No webcams were detected");
@@ -101,22 +107,20 @@ int main(int argc, char **argv)
         return ret;
     }
     Config::save_cam_configs(app_state);
-    Webcam** webcams;
 
-    webcams = new Webcam*[app_state->nb_cams];
+    app_state->webcams = new Webcam*[app_state->nb_cams];
     app_state->cam_textures = (SDL_Texture**)dc_malloc(sizeof(SDL_Texture*) * app_state->nb_cams); 
     spdlog::debug("Save Dir: {}", Settings::getVideoSaveDir().string());
-    app_state->webcams = webcams;
     for (int i = 0; i < app_state->nb_cams; i++)
     {
-        webcams[i] = new Webcam(app_state->devices[i]);
-        ret = webcams[i]->init(i);
+        app_state->webcams[i] = new Webcam(app_state->devices[i]);
+        ret = app_state->webcams[i]->init(i);
         if (ret < 0)
         {
             exitCode = ret;
             goto cleanup;
         }
-        any_has_audio = webcams[i]->has_audio;
+        any_has_audio = app_state->webcams[i]->has_audio;
     }
 
     // app_state->width = webcams[0]->video.codecContext->width;
@@ -130,7 +134,7 @@ int main(int argc, char **argv)
     }
     if (any_has_audio)
     {
-        ret = sdl_load_audio_spec(app_state->audio_spec, webcams[0]->audio.codecContext);
+        ret = sdl_load_audio_spec(app_state->audio_spec, app_state->webcams[0]->audio.codecContext);
         if (ret < 0)
         {
             exitCode = ret;
@@ -147,16 +151,16 @@ int main(int argc, char **argv)
 
     for (int i = 0; i < app_state->nb_cams; i++)
     {
-        app_state->cam_textures[i] = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, webcams[i]->video.codecContext->width, webcams[i]->video.codecContext->height);
+        app_state->cam_textures[i] = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, app_state->webcams[i]->video.codecContext->width, app_state->webcams[i]->video.codecContext->height);
 
         if (app_state->cam_textures[i] == nullptr)
         {
             spdlog::critical("Couldn't create texture[{}]: {}", i, SDL_GetError());
             goto cleanup;
         }
-        if (webcams[i]->has_audio)
+        if (app_state->webcams[i]->has_audio)
         {
-            ret = webcams[i]->startAudioCapture(app_state->audio_stream);
+            ret = app_state->webcams[i]->startAudioCapture(app_state->audio_stream);
             if (ret < 0)
             {
                 exitCode = ret;
@@ -187,7 +191,7 @@ int main(int argc, char **argv)
         createGUI(app_state);
         for (int i = 0; i < app_state->nb_cams; i++)
         {
-            ret = webcams[i]->processVideoFrame(app_state->cam_textures[i]);
+            ret = app_state->webcams[i]->processVideoFrame(app_state->cam_textures[i]);
             if (ret < 0)
             {
                 exitCode = ret;
@@ -224,17 +228,18 @@ cleanup:
             app_state->cam_textures[i] = nullptr;
         }
     }
+    dc_free(app_state->cam_textures);
     dc_free(app_state->devices);
     for (int i = 0; i < app_state->nb_cams; i++)
     {
-        if (webcams[i] != nullptr)
+        if (app_state->webcams[i] != nullptr)
         {
-            webcams[i]->close();
-            webcams[i] = nullptr;
+            app_state->webcams[i]->close();
+            delete app_state->webcams[i];
+            app_state->webcams[i] = nullptr;
         }
     }
-    free((void*) webcams);
-    webcams = nullptr;
+    delete[] app_state->webcams;
     app_state->webcams = nullptr;
     if (app_state != nullptr)
     {
@@ -250,43 +255,17 @@ cleanup:
 
         if (app_state->audio_spec != NULL)
         {
-            free(app_state->audio_spec);
+            dc_free(app_state->audio_spec);
             app_state->audio_spec = nullptr;
         }
 
-        free(app_state);
+        dc_free(app_state);
 
         app_state = nullptr;
     }
-    /*
-       if (cameras != nullptr)
-       {
-       for (int i = 0; i < nb_of_cams; ++i)
-       {
-       if (cameras[i].capture_mode != nullptr)
-       {
-       free(cameras[i].capture_mode);
-       cameras[i].capture_mode = nullptr;
-       }
-       if (cameras[i].bus_info != nullptr)
-       {
-       free((void *)cameras[i].bus_info);
-       cameras[i].bus_info = nullptr;
-       }
-       if (cameras[i].device_name != nullptr)
-       {
-       free((void *)cameras[i].device_name);
-       cameras[i].device_name = nullptr;
-       }
-       if (cameras[i].audio_hw != nullptr)
-       {
-       free((void *)cameras[i].audio_hw);
-       cameras[i].audio_hw = nullptr;
-       }
-       }
-       delete[] cameras;
-       }
-       */
+
+    spdlog::info("Memory status: {}", outstanding_references());
+
     return exitCode;
 }
 
@@ -347,7 +326,7 @@ void getCardAndDevice(const char *pcm_string, int *card, int *device)
             break;
         }
     }
-    free(tmp_str);
+    dc_free(tmp_str);
 }
 
 int getUsbIndex(const char *usbPath, cam_device *devices)

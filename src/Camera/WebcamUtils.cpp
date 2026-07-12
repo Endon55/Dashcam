@@ -1,5 +1,4 @@
 #include "WebcamUtils.h"
-#include "../Config.h"
 #include "../memory.h"
 
 #include <errno.h>
@@ -128,7 +127,7 @@ int query_all_capture_modes(AppState* state) {
     for (int i = 0; i < state->nb_cams; i++)
     {
         cam_device* device = state->devices[i];
-        if(device->cap_modes == nullptr)
+        if(device->cap_modes != nullptr)
         {
             continue;
         }
@@ -224,7 +223,7 @@ int query_capture_modes(cam_device* device)
 
         fmtDesc.index++;
     }
-    device->nb_cap_modes = new int(count);
+    device->nb_cap_modes = new_int(count);
     free(camcap);
     close(fd);
     return 0;
@@ -268,8 +267,8 @@ int query_all_webcams(AppState* state)
     const char *productID;
     const char *serialNumber;
     const char *test;
-    const int  *card_num;
-    const int  *device_num;
+    int  card_num;
+    int  device_num;
 
     /*
        Every webcam has 2 dev/video0 inputs, because the second one is used for camera meta-data. We simply skip every other option.
@@ -290,8 +289,8 @@ int query_all_webcams(AppState* state)
         vendorID = nullptr;
         serialNumber = nullptr;
         audioPath = nullptr;
-        card_num = nullptr;
-        device_num = nullptr;
+        card_num = -1;
+        device_num = -1;
 
         path = udev_list_entry_get_name(dev_list_entry);
         dev = udev_device_new_from_syspath(udev, path);
@@ -318,8 +317,8 @@ int query_all_webcams(AppState* state)
         {
 
             audioPath = nullptr;
-            card_num = nullptr;
-            device_num = nullptr;
+            card_num = -1;
+            device_num = -1;
             path = udev_list_entry_get_name(dev_list_entry2);
             dev = udev_device_new_from_syspath(udev, path);
             audioPath = udev_device_get_devnode(dev);
@@ -340,9 +339,9 @@ int query_all_webcams(AppState* state)
                     std::string::size_type size;
 
                     // We have to skip one character the C
-                    card_num = new int(std::stoi(tmp.substr(1), &size));
+                    card_num = std::stoi(tmp.substr(1), &size);
                     // We have to skip two characters the C, D, and whatever the size of the int was.
-                    device_num = new int(std::stoi(tmp.substr(2 + size)));
+                    device_num = std::stoi(tmp.substr(2 + size));
 
                     break;
                 }
@@ -364,19 +363,19 @@ int query_all_webcams(AppState* state)
 
             state->devices[nb_usb_cameras] = (cam_device*)dc_malloc(sizeof(cam_device));
 
-            state->devices[nb_usb_cameras]->usbPath = usbPath;
-            state->devices[nb_usb_cameras]->videoPath = videoPath;
+            state->devices[nb_usb_cameras]->usbPath = dc_strdup(usbPath);
+            state->devices[nb_usb_cameras]->videoPath = dc_strdup(videoPath);
  
-            state->devices[nb_usb_cameras]->manufacturer = manufacturer;
-            state->devices[nb_usb_cameras]->product = product;
-            state->devices[nb_usb_cameras]->vendorID = vendorID;
-            state->devices[nb_usb_cameras]->productID = productID;
-            state->devices[nb_usb_cameras]->serialNumber = serialNumber;
-            state->devices[nb_usb_cameras]->audioPath = audioPath;
-            state->devices[nb_usb_cameras]->audioCard = card_num;
-            state->devices[nb_usb_cameras]->audioDevice = device_num;
+            state->devices[nb_usb_cameras]->manufacturer = dc_strdup(manufacturer);
+            state->devices[nb_usb_cameras]->product = dc_strdup(product);
+            state->devices[nb_usb_cameras]->vendorID = dc_strdup(vendorID);
+            state->devices[nb_usb_cameras]->productID = dc_strdup(productID);
+            state->devices[nb_usb_cameras]->serialNumber = dc_strdup(serialNumber);
+            state->devices[nb_usb_cameras]->audioPath = dc_strdup(audioPath);
+            state->devices[nb_usb_cameras]->audioCard = new_int(card_num);
+            state->devices[nb_usb_cameras]->audioDevice = new_int(device_num);
         
-            if(card_num != nullptr && device_num != nullptr)
+            if(card_num != -1 && device_num != -1)
             {
                state->devices[nb_usb_cameras]->hw = (const char*)getAudioHW(state->devices[nb_usb_cameras]->audioCard, state->devices[nb_usb_cameras]->audioDevice);
             }
@@ -384,7 +383,6 @@ int query_all_webcams(AppState* state)
         }
         metadata = !metadata;
     }
-    
     cam_device* cam;
     spdlog::debug("Number of Cameras: {}", nb_usb_cameras);
     for (int i = 0; i < nb_usb_cameras; i++)
@@ -405,6 +403,19 @@ int query_all_webcams(AppState* state)
     }
     state->nb_cams = nb_usb_cameras;
     return 0;
+
+    udev_enumerate_unref(enum_audio);
+    udev_enumerate_unref(enum_video);
+    udev_device_unref(dev);
+    udev_device_unref(dev2);
+    video_devices = nullptr;
+    audio_devices = nullptr;
+    dev_list_entry = nullptr;
+    dev_list_entry2 = nullptr;
+    
+    udev_unref(udev);
+
+
 }
 
 // PlugHW is the alternate mode but I dont think I care about that.

@@ -1,6 +1,7 @@
 #include "Webcam.h"
 #include "../Settings.h"
 #include "Macros.h"
+#include "../memory.h"
 
 #include <cstdlib>
 #include <string>
@@ -408,8 +409,8 @@ int Webcam::initAudio()
     
     AVDictionary *options = nullptr;
     
-    char *sample_rate = (char*) malloc(sizeof(char) * 20);
-    char *channels = (char*) malloc(sizeof(char) * 10);
+    char *sample_rate = (char*) dc_malloc(sizeof(char) * 20);
+    char *channels = (char*) dc_malloc(sizeof(char) * 10);
 
     snprintf(sample_rate, 20, "%u", max_rate);
     
@@ -417,6 +418,8 @@ int Webcam::initAudio()
 
     av_dict_set(&options, "sample_rate", sample_rate, 0);
     av_dict_set(&options, "channels", channels, 0);
+    dc_free(sample_rate);
+    dc_free(channels);
 
     ret = avformat_open_input(&audio.fmtContext, device->hw, inputFormat, &options);
     av_dict_free(&options);
@@ -913,7 +916,6 @@ int Webcam::close()
         return -1;
     }
 
-    spdlog::debug("Closing Webcam: {}", device->videoPath);
     int ret = 0;
     stopAudioCapture();
 
@@ -960,7 +962,7 @@ int Webcam::closeVideo()
     }
     if(video.codecParams != nullptr)
     {
-        avcodec_parameters_free(&audio.codecParams);
+        avcodec_parameters_free(&video.codecParams);
         video.codecParams = nullptr;
     }
     if (video.codecContext != nullptr)
@@ -1011,11 +1013,7 @@ int Webcam::closeAudio()
         avformat_close_input(&audio.fmtContext);
         audio.fmtContext = nullptr;
     }
-    if(audio.codecParams != nullptr)
-    {
-        avcodec_parameters_free(&audio.codecParams);
-        audio.codecParams = nullptr;
-    }
+
     if (audio.codecContext != nullptr)
     {
         avcodec_free_context(&audio.codecContext);
@@ -1040,7 +1038,7 @@ int Webcam::closeAudio()
     if (audio.out_buf != nullptr)
     {
         av_free(audio.out_buf);
-        free((void *)audio.out_buf);
+        dc_free((void *)audio.out_buf);
         audio.out_buf_size = 0;
         audio.out_buf = nullptr;
     }

@@ -7,7 +7,6 @@
 #include <SDL3/SDL_iostream.h>
 #include "Camera/Camera.h"
 #include "Camera/Webcam.h"
-#include <toml++/toml.hpp>
 
 struct AppState
 {

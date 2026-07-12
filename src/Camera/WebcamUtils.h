@@ -1,6 +1,9 @@
 #pragma once
 #include "Camera.h"
 #include "../State.h"
+
+
+
 const char dev[] = "/dev/videoX";
 const int dev_len = 11;
 
