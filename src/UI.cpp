@@ -2,11 +2,9 @@
 #include <string>
 #include <imgui_internal.h>
 #include "Camera/Camera.h"
+#include "Config.h"
 #include "Settings.h"
 #include "Utils.h"
-
-
-
 
 static bool settings_open = false;
 static bool settings_modified = false;
@@ -38,7 +36,7 @@ void createGUI(AppState *app_state)
     }
     for (int i = 0; i < app_state->nb_cams; i++)
     {
-        snprintf((char*)&cam_name, sizeof(cam_name), "Camera %d", i);
+        snprintf((char *)&cam_name, sizeof(cam_name), "Camera %d", i);
         ImGui::Begin(cam_name);
 
         ImVec2 pos = ImGui::GetWindowPos();
@@ -48,7 +46,7 @@ void createGUI(AppState *app_state)
         ImGui::Text("window size %.1f %.1f", size.x, size.y);
 
         ImVec2 avail = ImGui::GetContentRegionAvail();
-        if (avail.x > 1.0f && avail.y > 1.0f && app_state != NULL && app_state->cam_textures[i] != NULL)
+        if (avail.x > 1.0f && avail.y > 1.0f && app_state != nullptr && app_state->cam_textures[i] != NULL)
         {
             float videoAspect = static_cast<float>(app_state->width) / static_cast<float>(app_state->height);
             float availAspect = avail.x / avail.y;
@@ -74,34 +72,43 @@ void createGUI(AppState *app_state)
     }
 }
 
-const capture_mode* new_mode;
-static vector<const capture_mode*> selected_modes(MAX_CAMS);
-bool create_dropdown_entry(cam_device* device, int index)
+const capture_mode *new_mode;
+static vector<const capture_mode *> selected_modes(MAX_CAMS);
+static vector<const capture_mode *> original_modes(MAX_CAMS);
+bool create_dropdown_entry(cam_device *device, int index)
 {
     ImGui::PushID(index);
-    if(selected_modes[index] == NULL)
+    if (selected_modes[index] == nullptr)
     {
         selected_modes[index] = device->default_mode;
+        original_modes[index] = device->default_mode;
     }
-    const bool is_selected = false; 
+    static bool is_selected = false;
     ImGui::Text("Camera %d", index);
 
-
-    std::map<const char* , std::map<double, std::vector<const capture_mode*>>> sorted_modes = Utils::decompose_capture_modes(device->cap_modes, *device->nb_cap_modes); 
+    std::map<const char *, std::map<double, std::vector<const capture_mode *>>> sorted_modes = Utils::decompose_capture_modes(device->cap_modes, *device->nb_cap_modes);
 
     int i = 0;
-    if(ImGui::BeginCombo("Format", selected_modes[index]->pixelFmtStr))
+    if (ImGui::BeginCombo("Format", selected_modes[index]->pixelFmtStr))
     {
-        for(auto &[format, fps_map] : sorted_modes)
+        for (auto &[format, fps_map] : sorted_modes)
         {
-            ImGui::PushID(i);
-            if(ImGui::Selectable(format, is_selected))
+            ImGui::PushID(i++);
+            is_selected = (format == selected_modes[index]->pixelFmtStr);
+            if (ImGui::Selectable(format, is_selected))
             {
-                new_mode = fps_map.begin()->second[0];
-                if(new_mode != selected_modes[index])
+                if (!is_selected)
                 {
-                    selected_modes[index] = new_mode;
-                    settings_modified = true;
+                    if (format == original_modes[index]->pixelFmtStr)
+                    {
+                        selected_modes[index] = original_modes[index];
+                        cam_config_modified = false;
+                    }
+                    else
+                    {
+                        selected_modes[index] = fps_map.begin()->second[0];
+                        cam_config_modified = true;
+                    }
                 }
             }
             ImGui::PopID();
@@ -109,20 +116,28 @@ bool create_dropdown_entry(cam_device* device, int index)
 
         ImGui::EndCombo();
     }
-    i = 0;
-    if(ImGui::BeginCombo("FPS", Utils::double_to_str(selected_modes[index]->fps)))
+    if (ImGui::BeginCombo("FPS", Utils::double_to_str(selected_modes[index]->fps)))
     {
-
-        for(auto &[fps, resolutions] : sorted_modes.at(selected_modes[index]->pixelFmtStr))
+        for (auto &[fps, resolutions] : sorted_modes.at(selected_modes[index]->pixelFmtStr))
         {
-            ImGui::PushID(i);
-            if(ImGui::Selectable(Utils::double_to_str(fps)), is_selected)
+            ImGui::PushID(i++);
+            is_selected = (fps == selected_modes[index]->fps);
+            if (ImGui::Selectable(Utils::double_to_str(fps), is_selected))
             {
-                new_mode = resolutions[0];
-                if(new_mode != selected_modes[index])
+                if (!is_selected)
                 {
-                    selected_modes[index] = new_mode;
-                    settings_modified = true;
+                    // double check the format is still the same
+                    if (selected_modes[index]->pixelFmtStr == original_modes[index]->pixelFmtStr &&
+                        fps == original_modes[index]->fps)
+                    {
+                        selected_modes[index] = original_modes[index];
+                        cam_config_modified = false;
+                    }
+                    else
+                    {
+                        selected_modes[index] = resolutions[0];
+                        cam_config_modified = true;
+                    }
                 }
             }
             ImGui::PopID();
@@ -130,19 +145,32 @@ bool create_dropdown_entry(cam_device* device, int index)
 
         ImGui::EndCombo();
     }
-    if(ImGui::BeginCombo("Resolution", Utils::resolution_to_str(selected_modes[index]->width, selected_modes[index]->height)))
+    if (ImGui::BeginCombo("Resolution", Utils::resolution_to_str(selected_modes[index]->width, selected_modes[index]->height)))
     {
-        vector<const capture_mode*> vec = sorted_modes.at(selected_modes[index]->pixelFmtStr).at(selected_modes[index]->fps);
+        vector<const capture_mode *> vec = sorted_modes.at(selected_modes[index]->pixelFmtStr).at(selected_modes[index]->fps);
 
-        for(int j = 0; j < vec.size(); j++)         {
-            ImGui::PushID(j);
-            if(ImGui::Selectable(Utils::resolution_to_str(vec[j]->width, vec[j]->height), is_selected))
+        for (int j = 0; j < vec.size(); j++)
+        {
+            ImGui::PushID(i++);
+            is_selected = (vec[j]->width == selected_modes[index]->width && vec[j]->height == selected_modes[index]->height);
+            if (ImGui::Selectable(Utils::resolution_to_str(vec[j]->width, vec[j]->height), is_selected))
             {
-                new_mode = vec[j];
-                if(new_mode != selected_modes[index])
+                if (!is_selected)
                 {
-                    selected_modes[index] = new_mode;
-                    settings_modified = true;
+                    // double check the format is still the same
+                    if (selected_modes[index]->pixelFmtStr == original_modes[index]->pixelFmtStr &&
+                        selected_modes[index]->fps == original_modes[index]->fps &&
+                        vec[j]->width == original_modes[index]->width && vec[j]->height == original_modes[index]->height)
+                    {
+
+                        selected_modes[index] = original_modes[index];
+                        cam_config_modified = false;
+                    }
+                    else
+                    {
+                        selected_modes[index] = vec[j];
+                        cam_config_modified = true;
+                    }
                 }
             }
             ImGui::PopID();
@@ -152,8 +180,7 @@ bool create_dropdown_entry(cam_device* device, int index)
     }
 
     ImGui::PopID();
-    return true; 
-
+    return true;
 }
 void createSettingsMenu(AppState *app_state)
 {
@@ -165,46 +192,59 @@ void createSettingsMenu(AppState *app_state)
     {
         Settings::setSaveDir(std::string(save_dir));
     }
-    for(int i = 0; i < app_state->nb_cams; i++)
-    {  
-        if(create_dropdown_entry(app_state->devices[i], i))
+    for (int i = 0; i < app_state->nb_cams; i++)
+    {
+        if (create_dropdown_entry(app_state->devices[i], i))
         {
-
         }
     }
 
-
-    if(settings_modified || cam_config_modified)
+    bool pushed = false;
+    if (!settings_modified && !cam_config_modified)
     {
+        pushed = true;
+        ImGui::Text("   "); 
         ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
     }
-    if(ImGui::Button("Save"))
+    else ImGui::Text("Changes will take effect on app restart");
+
+    if (ImGui::Button("Save"))
     {
-        if(settings_modified)
+        if (settings_modified)
         {
-            //save settigns file
+            int ret = Settings::save(); 
+            if(ret < 0)
+            {
+                spdlog::critical("Failed to save settings");
+            }
         }
-        if(cam_config_modified)
+        if (cam_config_modified)
         {
-            for(int i = 0; i < app_state->nb_cams; i++)
+            for (int i = 0; i < app_state->nb_cams; i++)
             {
                 app_state->devices[i]->default_mode = selected_modes[i];
             }
-            //save cam_config file
+            int ret = Config::save_cam_configs(app_state);
+            if(ret < 0)
+            {
+                spdlog::critical("Failed to save cam configuration");
+            }
+            // save cam_config file
         }
-
+        settings_modified = false;
+        cam_config_modified = false;
         settings_open = false;
     }
-    if(settings_modified || cam_config_modified)
+    if (pushed)
     {
         ImGui::PopItemFlag();
         ImGui::PopStyleVar();
-    }
-    if(ImGui::Button("Close"))
-    {
 
+        pushed = false;
+    }
+    if (ImGui::Button("Close"))
+    {
     }
     ImGui::End();
 }
-

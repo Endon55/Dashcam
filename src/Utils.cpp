@@ -72,5 +72,15 @@ std::map<const char* , std::map<double, std::vector<const capture_mode*>>> Utils
             const capture_mode* mode = modes[i];
             grouped_modes[mode->pixelFmtStr][mode->fps].push_back(mode);
         }
+        for(auto &[fmt, fps] : grouped_modes)
+        {
+            for(auto &[fps, resolutions] : fps)
+            {
+                std::sort(resolutions.begin(), resolutions.end(), [](const capture_mode* a, const capture_mode* b)
+                        {
+                            return (a->width * a->height) > (b->width * b->height);
+                        });
+            }
+        }
         return grouped_modes;
 }
