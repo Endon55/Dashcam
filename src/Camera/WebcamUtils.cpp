@@ -372,13 +372,14 @@ int query_all_webcams(AppState* state)
             state->devices[nb_usb_cameras]->productID = dc_strdup(productID);
             state->devices[nb_usb_cameras]->serialNumber = dc_strdup(serialNumber);
             state->devices[nb_usb_cameras]->audioPath = dc_strdup(audioPath);
-            state->devices[nb_usb_cameras]->audioCard = new_int(card_num);
-            state->devices[nb_usb_cameras]->audioDevice = new_int(device_num);
+            state->devices[nb_usb_cameras]->audioCard = (card_num != -1 ? new_int(card_num) : nullptr);
+            state->devices[nb_usb_cameras]->audioDevice = (device_num != -1 ? new_int(device_num): nullptr);
         
             if(card_num != -1 && device_num != -1)
             {
                state->devices[nb_usb_cameras]->hw = (const char*)getAudioHW(state->devices[nb_usb_cameras]->audioCard, state->devices[nb_usb_cameras]->audioDevice);
             }
+            else state->devices[nb_usb_cameras]->hw = nullptr;
             nb_usb_cameras++;
         }
         metadata = !metadata;
