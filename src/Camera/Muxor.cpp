@@ -25,13 +25,17 @@ extern "C"
 #include <mutex>
 #include <string>
 
+/*
+ * the purpose of the Muxor(multiplexer) is to combine the separate audio streams and
+ * video streams into one coherent box with properly aligned timestamps.
+ */
 
 
-
-Muxor::Muxor(std::string filename)
+Muxor::Muxor(std::string filename, bool has_audio)
 {
     spdlog::debug("Filename: {}", filename.c_str());
     this->filename = std::move(filename);
+    this->has_audio = has_audio;
 }
 
 int Muxor::init(int width, int height, AVRational frameRate)
@@ -52,12 +56,12 @@ int Muxor::init(int width, int height, AVRational frameRate)
 
     if (fmt->audio_codec == AV_CODEC_ID_NONE)
     {
-        spdlog::critical("Output Format failed to find an Audio Codec");
+        spdlog::critical("Output Format failed to find: Audio Codec");
         return -1;
     }
     if (fmt->video_codec == AV_CODEC_ID_NONE)
     {
-        spdlog::critical("Output Format failed to find an Video Codec");
+        spdlog::critical("Output Format failed to find: Video Codec");
         return -1;
     }
     spdlog::debug("Audio Codec: {}, Video Codec: {}", (long)fmt->audio_codec, (long)fmt->video_codec);

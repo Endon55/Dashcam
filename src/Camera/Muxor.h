@@ -48,9 +48,10 @@ private:
     const AVOutputFormat *fmt = nullptr;
     AVFormatContext *outputContext = nullptr;
     bool initialized = false;
+    bool has_audio;
 
 public:
-    Muxor(std::string filename);
+    Muxor(std::string filename, bool has_audio);
     int init(int width, int height, AVRational frameRate);
     int close();
     int write_video_frame(AVFrame *frame, AVRational srcTimeBase);

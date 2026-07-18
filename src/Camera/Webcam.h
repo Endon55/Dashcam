@@ -16,6 +16,8 @@
 extern "C"
 {
 #include <libavfilter/buffersink.h>
+#include <libavcodec/avcodec.h>
+#include <libavutil/pixfmt.h>
 }
 #include "Muxor.h"
 #include "Camera.h"
@@ -74,6 +76,7 @@ public:
     int startAudioCapture(SDL_AudioStream *audioStream);
     int stopAudioCapture();
     int muteAudioPlayback(bool mute);
+    int initFilterGraph(enum AVPixelFormat);
 
 private:
     int initVideo();

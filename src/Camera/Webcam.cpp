@@ -2,8 +2,10 @@
 #include "../Settings.h"
 #include "Macros.h"
 #include "../memory.h"
+#include "WebcamUtils.h"
 
 #include <cstdlib>
+#include <libavutil/pixfmt.h>
 #include <string>
 #include <stdio.h>
 #include <chrono>
@@ -40,16 +42,23 @@ Webcam::Webcam(cam_device *camera) : has_audio(camera->audioCard != nullptr)
 
 int Webcam::init(int camIndex)
 {
+    if(!device|| !device->default_mode || device->default_mode->width == 0 || device->default_mode->height == 0 || device->default_mode->pixelFormat == 0 || device->default_mode->fps == 0.0)
+    {
+        spdlog::critical("Tried to init webcam with invalid camera options");
+        return -1;
+    }
+
     avdevice_register_all();
     int ret;
     spdlog::debug("Initializing Webcam: {}", device->videoPath);
-
+    spdlog::debug("Initializing Video");
     ret = initVideo();
     if (ret < 0)
     {
         spdlog::critical("Failed to initialize video");
         return ret;
     }
+    spdlog::debug("Initializing Audio");
     if (has_audio)
     {
         ret = initAudio();
@@ -59,14 +68,16 @@ int Webcam::init(int camIndex)
             return ret;
         }
     }
-
+    spdlog::debug("Initializing Muxor");
     AVRational captureFrameRate = video.fmtContext->streams[video.stream_index]->avg_frame_rate;
     if (captureFrameRate.num <= 0 || captureFrameRate.den <= 0)
     {
+        spdlog::debug("Video stream doesn't have an avg_frame_rate, checking r_frame_rate");
         captureFrameRate = video.fmtContext->streams[video.stream_index]->r_frame_rate;
     }
     if (captureFrameRate.num <= 0 || captureFrameRate.den <= 0)
     {
+        spdlog::debug("Video stream doesn't have an r_frame_rate either, defaulting to 1/30");
         captureFrameRate = AVRational{30, 1};
     }
 
@@ -77,9 +88,7 @@ int Webcam::init(int camIndex)
     snprintf(ptr, 10, "c%02d-", camIndex);
     strftime(ptr + 4, std::size(timeString) - 5, "%FT%TZ", localtime(&timestamp));
 
-    spdlog::critical("Timestamp: {}", timeString);
-    //muxor = new Muxor("/home/anthony/Desktop/Dashcam/c01.mp4");
-    muxor = new Muxor(Settings::getVideoSaveDir().string() + "/" + timeString + ".mp4");
+    muxor = new Muxor(Settings::getVideoSaveDir().string() + "/" + timeString + ".mp4", has_audio);
     ret = muxor->init(video.codecParams->width, video.codecParams->height, captureFrameRate);
     if (ret < 0)
     {
@@ -90,16 +99,133 @@ int Webcam::init(int camIndex)
     return ret;
 }
 
+
+int Webcam::initFilterGraph(enum AVPixelFormat fmt)
+{
+    //Initializing the converter that converts frame data to a format SDL3 can display.
+    const AVColorRange targetColorRange =
+        video.codecContext->color_range != AVCOL_RANGE_UNSPECIFIED ? video.codecContext->color_range : AVCOL_RANGE_MPEG;
+    const AVColorSpace targetColorSpace =
+        video.codecContext->colorspace != AVCOL_SPC_UNSPECIFIED ? video.codecContext->colorspace : AVCOL_SPC_BT709;
+    AVRational targetPixelAspect = video.codecContext->sample_aspect_ratio;
+
+    spdlog::debug("Aspect: {}x{}", video.codecContext->sample_aspect_ratio.num, video.codecContext->sample_aspect_ratio.den);
+    if (targetPixelAspect.num <= 0 || targetPixelAspect.den <= 0)
+    {
+        targetPixelAspect = AVRational{1, 1};
+    }
+ 
+
+    video.sourceFilter = avfilter_graph_alloc_filter(video.filterGraph, avfilter_get_by_name("buffer"), "in");
+
+    int ret = 0;
+    if (!video.sourceFilter)
+    {
+
+        spdlog::critical("Failed to create buffer src filter");
+        return -1;
+    }
+
+    AVBufferSrcParameters *srcParams = av_buffersrc_parameters_alloc();
+    if (!srcParams)
+    {
+        spdlog::critical("Failed to allocate buffer source parameters");
+        return -1;
+    }
+    srcParams->format = fmt;
+    srcParams->width = video.codecContext->width;
+    srcParams->height = video.codecContext->height;
+    srcParams->time_base = video.fmtContext->streams[video.stream_index]->time_base;
+    // srcParams->sample_aspect_ratio = targetPixelAspect;
+    // srcParams->color_space = targetColorSpace;
+    // srcParams->color_range = targetColorRange;
+
+    ret = av_buffersrc_parameters_set(video.sourceFilter, srcParams);
+
+    av_free(srcParams);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to set buffer source parameters: {}", av_err2str(ret));
+        return -1;
+    }
+    ret = avfilter_init_str(video.sourceFilter, nullptr);
+
+    if(ret < 0)
+    {
+        spdlog::critical("Failed to initalize buffersrc filter: {}", av_err2str(ret));
+        return -1;
+    }
+
+    video.sinkFilter = avfilter_graph_alloc_filter(video.filterGraph, avfilter_get_by_name("buffersink"), "out");
+    if (!video.sinkFilter)
+    {
+        spdlog::critical("Failed to allocate buffer sink filter");
+        return -1;
+    }
+
+    ret = avfilter_init_str(video.sinkFilter, nullptr);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to initialize buffer sink filter: {}", av_err2str(ret));
+        return -1;
+    }
+
+    video.flipFilter = avfilter_graph_alloc_filter(video.filterGraph, avfilter_get_by_name("hflip"), "hflip");
+    if (!video.flipFilter)
+    {
+        spdlog::critical("Failed to allocate hflip filter");
+        return -1;
+    }
+
+    ret = avfilter_init_str(video.flipFilter, nullptr);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to initialize hflip filter: {}", av_err2str(ret));
+        return -1;
+    }
+
+    ret = avfilter_link(video.sourceFilter, 0, video.flipFilter, 0);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to link source to hflip: {}", av_err2str(ret));
+        return -1;
+    }
+
+    ret = avfilter_link(video.flipFilter, 0, video.sinkFilter, 0);
+    if (ret < 0)
+    {
+        spdlog::critical("failed to link hflip to sink: {}", av_err2str(ret));
+        return -1;
+    }
+
+    ret = avfilter_graph_config(video.filterGraph, nullptr);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to configure filter graph: {}", av_err2str(ret));
+        return -1;
+    }
+
+
+    video.yuv_frame->format = fmt;
+    video.yuv_frame->width = video.codecContext->width;
+    video.yuv_frame->height = video.codecContext->height;
+    if (av_frame_get_buffer(video.yuv_frame, 0) < 0)
+    {
+        spdlog::critical("failed to allocate YUV frame buffer");
+        return -1;
+    }
+    return 0;
+}
+
 int Webcam::initVideo()
 {
-    spdlog::debug("Initializing Video");
     video = {};
     int ret = 0;
     video.stream_index = -1;
     video.fmtContext = avformat_alloc_context();
     if (!video.fmtContext)
     {
-        spdlog::critical("Failed to allocate memory for av format context");
+        spdlog::critical("Failed to allocate memory for format context");
         return -1;
     }
     const AVInputFormat *inputFormat = av_find_input_format("v4l2");
@@ -114,24 +240,20 @@ int Webcam::initVideo()
     char videoSize[32];
     snprintf(videoSize, sizeof(videoSize), "%dx%d", device->default_mode->width, device->default_mode->height);
     av_dict_set(&videoInputOptions, "video_size", videoSize, 0);
-    if (device->default_mode->fps > 0.0)
-    {
-        char frameRate[16];
-        int stableFps = static_cast<int>(std::round(device->default_mode->fps));
-        snprintf(frameRate, sizeof(frameRate), "%d", stableFps);
-        av_dict_set(&videoInputOptions, "framerate", frameRate, 0);
-    }
+    
+    char frameRate[16];
+    int stableFps = static_cast<int>(std::round(device->default_mode->fps));
+    snprintf(frameRate, sizeof(frameRate), "%d", stableFps);
+    av_dict_set(&videoInputOptions, "framerate", frameRate, 0);
 
-    av_dict_set(&videoInputOptions, "input_format", device->default_mode->pixelFmtStr, 0);
+    av_dict_set(&videoInputOptions, "input_format", (device->default_mode->pixelFmtStr != nullptr ? device->default_mode->pixelFmtStr : fourcc_to_str(device->default_mode->pixelFormat)), 0);
 
-    spdlog::info("Requesting webcam mode {} @ {:.2f} fps ({})",
+    spdlog::info("Opening webcam with default capture mode {} @ {}fps ({})",
                  videoSize,
-                 device->default_mode->fps,
+                 frameRate,
                  device->default_mode->pixelFmtStr);
 
-    spdlog::info("Opening Input");
     ret = avformat_open_input(&video.fmtContext, device->videoPath, inputFormat, &videoInputOptions);
-    spdlog::info("Freeing Dict");
     av_dict_free(&videoInputOptions);
     if (ret < 0)
     {
@@ -177,44 +299,47 @@ int Webcam::initVideo()
     }
     if (video.fmtContext->nb_streams == 0)
     {
-        spdlog::critical("No streams were reported by the video device");
+        spdlog::critical("Webcam initVideo: No streams were reported by the video device");
         return -1;
     }
-    spdlog::debug("Video Streams: {}", video.fmtContext->nb_streams);
+    spdlog::debug("Streams: {}", video.fmtContext->nb_streams);
     for (int i = 0; i < video.fmtContext->nb_streams; i++)
     {
-        spdlog::debug("Stream {}", i);
-        AVCodecParameters *pLocalCodecParameters = nullptr;
-        pLocalCodecParameters = video.fmtContext->streams[i]->codecpar;
-        spdlog::debug("AVStream->time_base before open coded {}/{}", video.fmtContext->streams[i]->time_base.num, video.fmtContext->streams[i]->time_base.den);
-        spdlog::debug("AVStream->r_frame_rate before open coded {}/{}", video.fmtContext->streams[i]->r_frame_rate.num, video.fmtContext->streams[i]->r_frame_rate.den);
-        spdlog::debug("AVStream->start_time {}" PRId64, video.fmtContext->streams[i]->start_time);
-        spdlog::debug("AVStream->duration {}" PRId64, video.fmtContext->streams[i]->duration);
-        const AVCodec *pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
-
-        if (pLocalCodec == nullptr)
+        AVCodecParameters *pLocalCodecParameters = video.fmtContext->streams[i]->codecpar;
+        if(!pLocalCodecParameters)
         {
-            spdlog::debug("Failed to find local codec: {}", i);
+            spdlog::warn("Failed to find local codec parameters: stream-{}", i);
             continue;
         }
+        const AVCodec *pLocalCodec = avcodec_find_decoder(pLocalCodecParameters->codec_id);
+
+        if (!pLocalCodec)
+        {
+            spdlog::warn("Failed to find local codec: stream-{}", i);
+            continue;
+        }
+        //We only handle single video streams right now, no idea if more is possible.
         if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_VIDEO)
         {
-            if (video.stream_index == -1)
+            video.stream_index = i;
+            video.codecParams = pLocalCodecParameters;
+            video.codec = pLocalCodec;
+            AVDictionary *dict = video.fmtContext->streams[i]->metadata;
+            const AVDictionaryEntry *entry = nullptr;
+            int dict_size = av_dict_count(dict);
+            if(dict_size > 0)
             {
-                video.stream_index = i;
-                video.codecParams = pLocalCodecParameters;
-                video.codec = pLocalCodec;
-                AVDictionary *dict = video.fmtContext->streams[i]->metadata;
-                const AVDictionaryEntry *entry = nullptr;
                 spdlog::debug("Video Stream Metadata");
                 for (int j = 0; j < av_dict_count(dict); j++)
                 {
                     entry = av_dict_iterate(dict, entry);
 
-                    spdlog::debug("Key: {}, Value: {}", entry->key, entry->value);
+                    spdlog::debug(" Key: {}, Value: {}", entry->key, entry->value);
                 }
             }
-            spdlog::debug("Video Codec: resolution {} x {}", pLocalCodecParameters->width, pLocalCodecParameters->height);
+
+            spdlog::debug("Stream Resolution: {}x{}", pLocalCodecParameters->width, pLocalCodecParameters->height);
+            break;
         }
         else if (pLocalCodecParameters->codec_type == AVMEDIA_TYPE_AUDIO)
         {
@@ -222,143 +347,49 @@ int Webcam::initVideo()
             return -1;
         }
 
-        /* spdlog::debug("\tCodec %s ID %d bit_rate %d", pLocalCodec->name, (int)(pLocalCodec->id), pLocalCodecParameters->bit_rate); */
     }
 
     if (video.stream_index == -1)
     {
-        spdlog::critical("Couldn't find a video stream");
+        spdlog::critical("Failed to find a video stream");
         return -1;
     }
     video.codecContext = avcodec_alloc_context3(video.codec);
     if (!video.codecContext)
     {
-        spdlog::critical("failed to allocate memory for video AVCodecContext");
+        spdlog::critical("Failed to allocate memory for video AVCodecContext");
         return -1;
     }
-
-    if (avcodec_parameters_to_context(video.codecContext, video.codecParams) < 0)
-    {
-        spdlog::critical("failed to assign codec params to video codec context");
-        return -1;
-    }
-
-    if (avcodec_open2(video.codecContext, video.codec, nullptr) < 0)
-    {
-        spdlog::critical("failed to open the video codec");
-        return -1;
-    }
-
-    const AVColorRange targetColorRange =
-        video.codecContext->color_range != AVCOL_RANGE_UNSPECIFIED ? video.codecContext->color_range : AVCOL_RANGE_MPEG;
-    const AVColorSpace targetColorSpace =
-        video.codecContext->colorspace != AVCOL_SPC_UNSPECIFIED ? video.codecContext->colorspace : AVCOL_SPC_BT709;
-    AVRational targetPixelAspect = video.codecContext->sample_aspect_ratio;
-    if (targetPixelAspect.num <= 0 || targetPixelAspect.den <= 0)
-    {
-        targetPixelAspect = AVRational{1, 1};
-    }
-
-    // Create buffer source args with proper format
-    char args[512];
-    snprintf(args, sizeof(args),
-             "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-             video.codecContext->width, video.codecContext->height, AV_PIX_FMT_YUV420P,
-             video.fmtContext->streams[video.stream_index]->time_base.num,
-             video.fmtContext->streams[video.stream_index]->time_base.den,
-             video.codecContext->sample_aspect_ratio.num,
-             video.codecContext->sample_aspect_ratio.den);
-
-    ret = avfilter_graph_create_filter(&video.sourceFilter, avfilter_get_by_name("buffer"), "in", args, nullptr, video.filterGraph);
+    ret = avcodec_parameters_to_context(video.codecContext, video.codecParams); 
     if (ret < 0)
     {
-        spdlog::critical("failed to create buffer source: {}", av_err2str(ret));
+        spdlog::critical("Filed to assign codec params to video codec context: {}", av_err2str(ret));
         return -1;
     }
-
-    AVBufferSrcParameters *srcParams = av_buffersrc_parameters_alloc();
-    if (!srcParams)
-    {
-        spdlog::critical("failed to allocate buffer source parameters");
-        return -1;
-    }
-    srcParams->format = AV_PIX_FMT_YUV420P;
-    srcParams->width = video.codecContext->width;
-    srcParams->height = video.codecContext->height;
-    srcParams->time_base = video.fmtContext->streams[video.stream_index]->time_base;
-    srcParams->sample_aspect_ratio = targetPixelAspect;
-    srcParams->color_space = targetColorSpace;
-    srcParams->color_range = targetColorRange;
-
-    ret = av_buffersrc_parameters_set(video.sourceFilter, srcParams);
-    av_free(srcParams);
+    ret = avcodec_open2(video.codecContext, video.codec, nullptr);
+    //This is the finalization call to the codec, so we can send/receive data from it.
     if (ret < 0)
     {
-        spdlog::critical("failed to set buffer source parameters: {}", av_err2str(ret));
+        spdlog::critical("Failed to open the video codec: {}", av_err2str(ret));
         return -1;
     }
 
-    video.sinkFilter = avfilter_graph_alloc_filter(video.filterGraph, avfilter_get_by_name("buffersink"), "out");
-    if (!video.sinkFilter)
+    //Opaque is just a user defined variable, in this case a class object.
+    video.codecContext->opaque = this;
+    //FFMPEG doesn't have a concrete idea of what all the finalized formats are until it receives the first frame of camera data and has a built in callback so we can use the chosen format.
+    video.codecContext->get_format = [](AVCodecContext* ctx, const enum AVPixelFormat* fmt)
     {
-        spdlog::critical("failed to allocate buffer sink");
-        return -1;
-    }
-
-    ret = avfilter_init_str(video.sinkFilter, nullptr);
-    if (ret < 0)
-    {
-        spdlog::critical("failed to initialize buffer sink: {}", av_err2str(ret));
-        return -1;
-    }
-
-    video.flipFilter = avfilter_graph_alloc_filter(video.filterGraph, avfilter_get_by_name("hflip"), "hflip");
-    if (!video.flipFilter)
-    {
-        spdlog::critical("failed to allocate filter context");
-        return -1;
-    }
-
-    ret = avfilter_init_str(video.flipFilter, nullptr);
-    if (ret < 0)
-    {
-        spdlog::critical("failed to initialize filter: {}", av_err2str(ret));
-        return -1;
-    }
-
-    ret = avfilter_link(video.sourceFilter, 0, video.flipFilter, 0);
-    if (ret < 0)
-    {
-        spdlog::critical("failed to link source to filter: {}", av_err2str(ret));
-        return -1;
-    }
-
-    ret = avfilter_link(video.flipFilter, 0, video.sinkFilter, 0);
-    if (ret < 0)
-    {
-        spdlog::critical("failed to link filter to sink: {}", av_err2str(ret));
-        return -1;
-    }
-
-    ret = avfilter_graph_config(video.filterGraph, nullptr);
-    if (ret < 0)
-    {
-        spdlog::critical("failed to configure filter graph: {}", av_err2str(ret));
-        return -1;
-    }
-
-    video.yuv_frame->format = AV_PIX_FMT_YUV420P;
-    video.yuv_frame->width = video.codecContext->width;
-    video.yuv_frame->height = video.codecContext->height;
-    if (av_frame_get_buffer(video.yuv_frame, 0) < 0)
-    {
-        spdlog::critical("failed to allocate YUV frame buffer");
-        return -1;
-    }
+        spdlog::critical("Called with format: {}", av_get_pix_fmt_name(fmt[0])); 
+        Webcam* self = static_cast<Webcam*>(ctx->opaque);
+        if(self->initFilterGraph(fmt[0]) < 0)
+        {
+            spdlog::critical("FAILED TO INITIALIZE FILTER GRAPH BUT I CANT BREAK THE PROGRAM");
+        }
+        return fmt[0];
+    };
 
     return 0;
 }
-
 int Webcam::initAudio()
 {
     spdlog::info("Initializing Audio");
