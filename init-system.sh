@@ -21,7 +21,7 @@ libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
 libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev \
 libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libthai-dev libusb-1.0-0-dev \
 libwayland-dev libxkbcommon-dev libegl1-mesa-dev nasm autoconf autoconf-archive automake \
-libtool
+libtool libx265-dev libnuma-dev
 
 VCPKG_ROOT_LINE="export VCPKG_ROOT=\"$vcpkg_dir\""
 PATH_LINE="export PATH=\"\$VCPKG_ROOT:\$PATH\""

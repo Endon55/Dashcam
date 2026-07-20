@@ -56,6 +56,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
     libswresample
     libswscale
     alsa
+    x264
 )
 
 add_subdirectory(src)

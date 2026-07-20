@@ -18,12 +18,17 @@ extern "C"
 #include <libavfilter/buffersink.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/samplefmt.h>
 }
 #include "Muxor.h"
 #include "Camera.h"
 using namespace std;
 
-
+static const AVColorRange  COLOR_RANGE_DEFAULT = AVCOL_RANGE_MPEG;
+static const AVColorSpace  COLOR_SPACE_DEFAULT = AVCOL_SPC_BT709;
+static const AVSampleFormat  SDL_SAMPLE_FORMAT = AV_SAMPLE_FMT_S16;
+static const SDL_PixelFormat  SDL_IMAGE_FORMAT = SDL_PIXELFORMAT_IYUV;
+static const AVPixelFormat FFMPEG_IMAGE_FORMAT = AV_PIX_FMT_YUV420P;
 
 struct Video
 {
@@ -88,7 +93,6 @@ private:
     int flushRecorderEncoder(AVCodecContext *encContext, AVStream *stream);
 
 private:
-    bool initialized = false;
     std::thread audioThread;
     std::atomic<bool> audioThreadRunning{false};
     std::atomic<bool> audioThreadStopRequested{false};

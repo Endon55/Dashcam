@@ -1,13 +1,7 @@
--Rework the capture_priority in webcamutils to be a more robust system.
---Probably combine the probe best mode and find all webcams step to avoid redundant system calls.
-
-
--cache resolutions and fps and format
-[mjpeg]
-    [60]
-        1920x1080
-    [30]
-        4k x 2k
-
-then create a settings window that will show all the options and allow the user to select an option.
 Then reload the cameras with the new settings.
+
+
+Add more robust GOP(Group of Pictures) options, right now Im maximizing compressibility though that might not be ideal in all circumstances.
+    Also look more into keyint_min/max and min/max b_frames.
+    Also add the filter pipeline for automatically determining scene changes and new i_frame placement.
+    Also play around with global_quality to find the optimal settings

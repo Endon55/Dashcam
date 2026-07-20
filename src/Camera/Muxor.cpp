@@ -1,6 +1,7 @@
 #include "Muxor.h"
 #include "Macros.h"
-
+#include <libavutil/avutil.h>
+#include <libavutil/dict.h>
 
 extern "C"
 {
@@ -30,7 +31,6 @@ extern "C"
  * video streams into one coherent box with properly aligned timestamps.
  */
 
-
 Muxor::Muxor(std::string filename, bool has_audio)
 {
     spdlog::debug("Filename: {}", filename.c_str());
@@ -41,34 +41,32 @@ Muxor::Muxor(std::string filename, bool has_audio)
 int Muxor::init(int width, int height, AVRational frameRate)
 {
     spdlog::debug("Initializing Muxor");
-    const AVCodec *audio_codec, *video_codec;
+    const AVCodec *audio_codec, *video_codec = nullptr;
     int ret;
     AVDictionary *opt = nullptr;
 
-    avformat_alloc_output_context2(&outputContext, nullptr, "MP4", filename.c_str());
+    ret = avformat_alloc_output_context2(&outputContext, nullptr, "MP4", filename.c_str());
 
-    if (!outputContext)
+    if (!outputContext || ret < 0)
     {
         spdlog::critical("Failed to allocate output context memory");
         return -1;
     }
-    fmt = outputContext->oformat;
 
-    if (fmt->audio_codec == AV_CODEC_ID_NONE)
+    if (outputContext->oformat->audio_codec == AV_CODEC_ID_NONE)
     {
         spdlog::critical("Output Format failed to find: Audio Codec");
         return -1;
     }
-    if (fmt->video_codec == AV_CODEC_ID_NONE)
+    if (outputContext->oformat->video_codec == AV_CODEC_ID_NONE)
     {
         spdlog::critical("Output Format failed to find: Video Codec");
         return -1;
     }
-    spdlog::debug("Audio Codec: {}, Video Codec: {}", (long)fmt->audio_codec, (long)fmt->video_codec);
 
     audio_stream = {0};
     video_stream = {0};
-    video_stream.src_time_base = AVRational{0, 1};
+    video_stream.src_time_base = AVRational{0, 1}; // set this way so that we can update it later with proper frame info
     video_stream.width = width;
     video_stream.height = height;
     audio_stream.width = width;
@@ -76,33 +74,19 @@ int Muxor::init(int width, int height, AVRational frameRate)
 
     spdlog::debug("Video resolution {} x {}", width, height);
 
-    ret = add_stream(&video_stream, outputContext, &video_codec, fmt->video_codec, frameRate);
+    ret = add_video_stream(&video_stream, outputContext, &video_codec, frameRate, opt);
     if (ret < 0)
     {
         spdlog::critical("Failed to add video stream");
         return -1;
     }
-    ret = add_stream(&audio_stream, outputContext, &audio_codec, fmt->audio_codec, AVRational{0, 1});
+    ret = add_audio_stream(&audio_stream, outputContext, &audio_codec, outputContext->oformat->audio_codec, AVRational{0, 1}, opt);
+
     if (ret < 0)
     {
         spdlog::critical("Failed to add video stream");
         return -1;
     }
-
-    ret = open_video(outputContext, video_codec, &video_stream, opt);
-    if (ret < 0)
-    {
-        spdlog::critical("Failed to open video stream");
-        return -1;
-    }
-
-    ret = open_audio(outputContext, audio_codec, &audio_stream, opt);
-    if (ret < 0)
-    {
-        spdlog::critical("Failed to open audio stream");
-        return -1;
-    }
-
     // Debug Info about the stream
     av_dump_format(outputContext, 0, filename.c_str(), 1);
 
@@ -119,7 +103,6 @@ int Muxor::init(int width, int height, AVRational frameRate)
         spdlog::critical("Error while writing output header: {}", av_err2str(ret));
         return -1;
     }
-    initialized = true;
     return 0;
 }
 
@@ -133,7 +116,7 @@ AVFrame *Muxor::alloc_frame(enum AVPixelFormat pix_fmt, int width, int height)
         spdlog::critical("Failed to allocate frame memory");
         return nullptr;
     }
-   frame->format = pix_fmt;
+    frame->format = pix_fmt;
     frame->width = width;
     frame->height = height;
 
@@ -279,11 +262,6 @@ int Muxor::open_video(AVFormatContext *fmtContext, const AVCodec *codec, OutputS
 
 int Muxor::write_audio_frame(AVFrame *frame)
 {
-    if(!initialized)
-    {
-        spdlog::critical("Didn't initialize Muxor before trying to use it.");
-        return -1;
-    }
     int ret;
     if (frame)
     {
@@ -464,11 +442,6 @@ int Muxor::write_audio_frame(AVFrame *frame)
 
 int Muxor::write_video_frame(AVFrame *frame, AVRational srcTimeBase)
 {
-    if(!initialized)
-    {
-        spdlog::critical("Didn't initialize Muxor before trying to use it.");
-        return -1;
-    }
     if (!frame)
     {
         return 0;
@@ -536,32 +509,36 @@ int Muxor::write_frame(AVFormatContext *outputContext, AVCodecContext *codecCont
 /*
     Takes in a locally defined OutputStream struct to hold all the values for the stream. Fmt Context will be the same object between video and audio streams. Codec is the a pointer to where you want the value of codec to be stored and Codec ID is the value of the codec you want fetched and stored.
 */
-int Muxor::add_stream(OutputStream *stream, AVFormatContext *fmtContext, const AVCodec **codec, enum AVCodecID codec_id, AVRational frameRate)
+int Muxor::add_audio_stream(OutputStream *stream, AVFormatContext *fmtContext, const AVCodec **codec, enum AVCodecID codec_id, AVRational frameRate, AVDictionary *opt_args)
 {
-    int ret = 0;
     AVCodecContext *codecContext;
+    int ret = 0;
+
+    
     *codec = avcodec_find_encoder(codec_id);
     if (!(*codec))
     {
-        spdlog::critical("Failed to locate codec: {}", (long)codec_id);
+        spdlog::critical("Failed to locate codec: {}", avcodec_get_name(codec_id));
         return -1;
     }
 
+    spdlog::debug("Audio Codec: {}", avcodec_get_name(codec_id));
     stream->tmp_packet = av_packet_alloc();
     if (!stream->tmp_packet)
     {
         spdlog::critical("Failed to allocate memory for packet");
         return -1;
     }
+    // Adding a stream to the context
     stream->stream = avformat_new_stream(fmtContext, nullptr);
     if (!stream->stream)
     {
         spdlog::critical("Failed to allocate memory for stream");
         return -1;
     }
+
     stream->stream->id = fmtContext->nb_streams - 1;
     codecContext = avcodec_alloc_context3(*codec);
-
     if (!codecContext)
     {
         spdlog::critical("Failed to allocate memory for codec context");
@@ -570,84 +547,30 @@ int Muxor::add_stream(OutputStream *stream, AVFormatContext *fmtContext, const A
 
     stream->codecContext = codecContext;
 
-    int i;
-    switch ((*codec)->type)
+    const AVSampleFormat *sample_fmt;
+    ret = avcodec_get_supported_config(codecContext, *codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, (const void **)&sample_fmt, nullptr);
+    codecContext->sample_fmt = ret >= 0 ? sample_fmt[0] : AV_SAMPLE_FMT_FLTP;
+    codecContext->bit_rate = 64000;
+    codecContext->sample_rate = 44100;
+    int *sample_rate;
+    ret = avcodec_get_supported_config(codecContext, *codec, AV_CODEC_CONFIG_SAMPLE_RATE, 0, (const void **)&sample_rate, nullptr);
+    if (ret >= 0)
     {
-    case AVMEDIA_TYPE_AUDIO:
-    {
-        const AVSampleFormat *sample_fmt;
-        ret = avcodec_get_supported_config(codecContext, *codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, (const void **)&sample_fmt, nullptr);
-        codecContext->sample_fmt = ret >= 0 ? sample_fmt[0] : AV_SAMPLE_FMT_FLTP;
-        codecContext->bit_rate = 64000;
-        codecContext->sample_rate = 44100;
-        int *sample_rate;
-        ret = avcodec_get_supported_config(codecContext, *codec, AV_CODEC_CONFIG_SAMPLE_RATE, 0, (const void **)&sample_rate, nullptr);
-        if (ret >= 0)
+        codecContext->sample_rate = sample_rate[0];
+        for (int i = 0; sample_rate[i]; i++)
         {
-            codecContext->sample_rate = sample_rate[0];
-            for (i = 0; sample_rate[i]; i++)
+            if (sample_rate[i] == 44100)
             {
-                if (sample_rate[i] == 44100)
-                {
-                    codecContext->sample_rate = 44100;
-                }
+                codecContext->sample_rate = 44100;
             }
         }
-        // Cant inline this without compiler getting mad
-        AVChannelLayout channel_layout = AV_CHANNEL_LAYOUT_STEREO;
-        av_channel_layout_copy(&codecContext->ch_layout, &channel_layout);
-
-        stream->stream->time_base = (AVRational){1, codecContext->sample_rate};
-        codecContext->time_base = stream->stream->time_base;
-        break;
     }
+    // Cant inline this without compiler getting mad
+    AVChannelLayout channel_layout = AV_CHANNEL_LAYOUT_STEREO;
+    av_channel_layout_copy(&codecContext->ch_layout, &channel_layout);
 
-    case AVMEDIA_TYPE_VIDEO:
-    {
-        AVRational targetFrameRate = frameRate;
-        if (targetFrameRate.num <= 0 || targetFrameRate.den <= 0)
-        {
-            targetFrameRate = AVRational{30, 1};
-        }
-
-        codecContext->codec_id = codec_id;
-        codecContext->width = stream->width;
-        codecContext->height = stream->height;
-        codecContext->framerate = targetFrameRate;
-        stream->stream->avg_frame_rate = targetFrameRate;
-        stream->stream->time_base = av_inv_q(targetFrameRate);
-        codecContext->time_base = stream->stream->time_base;
-        codecContext->gop_size = 60;
-        codecContext->pix_fmt = AV_PIX_FMT_YUV420P;
-
-        int64_t pixelsPerSecond =
-            static_cast<int64_t>(stream->width) * static_cast<int64_t>(stream->height) *
-            static_cast<int64_t>(targetFrameRate.num) / static_cast<int64_t>(targetFrameRate.den);
-        int64_t estimatedBitRate = pixelsPerSecond / 6;
-        if (estimatedBitRate < 2000000)
-        {
-            estimatedBitRate = 2000000;
-        }
-        if (estimatedBitRate > 20000000)
-        {
-            estimatedBitRate = 20000000;
-        }
-        codecContext->bit_rate = estimatedBitRate;
-
-        if (codecContext->codec_id == AV_CODEC_ID_MPEG2VIDEO)
-        {
-            codecContext->max_b_frames = 2;
-        }
-        if (codecContext->codec_id == AV_CODEC_ID_MPEG1VIDEO)
-        {
-            codecContext->mb_decision = 2;
-        }
-
-        break;
-    }
-    default:
-        break;
-    }
+    stream->stream->time_base = (AVRational){1, codecContext->sample_rate};
+    codecContext->time_base = stream->stream->time_base;
 
     /*some formats get fucky*/
     if (fmtContext->oformat->flags & AVFMT_GLOBALHEADER)
@@ -655,8 +578,168 @@ int Muxor::add_stream(OutputStream *stream, AVFormatContext *fmtContext, const A
         codecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     }
 
+    spdlog::debug("Codec: {}", codecContext->codec->long_name);
+
+    int nb_samples;
+    AVDictionary *opt = nullptr;
+
+    av_dict_copy(&opt, opt_args, 0);
+
+    ret = avcodec_open2(codecContext, *codec, &opt);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to open audio codec: {}", av_err2str(ret));
+        return -1;
+    }
+
+    // Signal generator
+    stream->t = 0;
+    stream->tincr = 2 * M_PI * 110.0 / codecContext->sample_rate;
+    stream->tincr2 = 2 * M_PI * 110.0 / codecContext->sample_rate / codecContext->sample_rate;
+
+    if (codecContext->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)
+        nb_samples = 1024;
+    else
+        nb_samples = codecContext->frame_size;
+    if (nb_samples <= 0)
+    {
+        nb_samples = 1024;
+    }
+
+    stream->frame = alloc_audio_frame(codecContext->sample_fmt, &codecContext->ch_layout, codecContext->sample_rate, nb_samples);
+    stream->tmp_frame = alloc_audio_frame(AV_SAMPLE_FMT_S16, &codecContext->ch_layout, codecContext->sample_rate, nb_samples);
+
+    ret = avcodec_parameters_from_context(stream->stream->codecpar, codecContext);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to copy audio stream parameters");
+        return -1;
+    }
+
+    // Initialize when the first captured frame arrives so input format/rate/layout are accurate.
+    stream->swr_ctx = nullptr;
+    stream->audio_fifo = av_audio_fifo_alloc(codecContext->sample_fmt,
+                                             codecContext->ch_layout.nb_channels,
+                                             nb_samples * 4);
+    if (!stream->audio_fifo)
+    {
+        spdlog::critical("Failed to allocate audio fifo");
+        return -1;
+    }
+
     return 0;
 }
+
+int Muxor::add_video_stream(OutputStream *stream, AVFormatContext *fmtContext, const AVCodec **codec, AVRational frameRate, AVDictionary *opt_args)
+{
+    *codec = avcodec_find_encoder_by_name("libx264");
+
+
+    if (!*codec)
+    {
+        spdlog::critical("Failed to find the H.264 codec.");
+        return -1;
+    }
+
+    AVCodecID codec_id = (*codec)->id;
+    AVCodecContext *codecContext;
+    int ret = 0;
+
+    spdlog::debug("Codec: {}", avcodec_get_name(codec_id));
+    stream->tmp_packet = av_packet_alloc();
+    if (!stream->tmp_packet)
+    {
+        spdlog::critical("Failed to allocate memory for packet");
+        return -1;
+    }
+    // Adding a video stream to the context
+    stream->stream = avformat_new_stream(fmtContext, nullptr);
+    if (!stream->stream)
+    {
+        spdlog::critical("Failed to allocate memory for stream");
+        return -1;
+    }
+
+    stream->stream->id = fmtContext->nb_streams - 1;
+    codecContext = avcodec_alloc_context3(*codec);
+    if (!codecContext)
+    {
+        spdlog::critical("Failed to allocate memory for codec context");
+        return -1;
+    }
+
+    stream->codecContext = codecContext;
+
+    AVRational targetFrameRate = frameRate;
+    if (targetFrameRate.num <= 0 || targetFrameRate.den <= 0)
+    {
+        targetFrameRate = AVRational{30, 1};
+    }
+
+    codecContext->codec_id = codec_id;
+    codecContext->width = stream->width;
+    codecContext->height = stream->height;
+    codecContext->framerate = targetFrameRate;
+    stream->stream->avg_frame_rate = targetFrameRate;
+    stream->stream->time_base = av_inv_q(targetFrameRate);
+    codecContext->time_base = stream->stream->time_base;
+
+    codecContext->gop_size = 10 * stream->stream->time_base.den;  // approx 10 seconds between key frames.
+    codecContext->keyint_min = 1 * stream->stream->time_base.den; // min number of derived frames between key frames.
+    codecContext->max_b_frames = 0;                               // b_frames are the most compressable but they lost the most detail.
+
+    codecContext->pix_fmt = AV_PIX_FMT_YUV420P;
+
+    /*adds headers once to the container rather than to every frame*/
+    if (fmtContext->oformat->flags & AVFMT_GLOBALHEADER)
+    {
+        codecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    }
+
+    AVDictionary *opt = nullptr;
+
+    av_dict_copy(&opt, opt_args, 0);
+    codecContext->flags |= AV_CODEC_FLAG_QSCALE; //Sets the encoder to use a consistent quality for every frame rather than an setting an average quality across all frames.
+    codecContext->global_quality = 1 * FF_QP2LAMBDA;
+    // // Realtime-friendly defaults for software HEVC on CPU-only systems.
+    av_dict_set(&opt, "preset", "ultrafast", 0);
+    av_dict_set(&opt, "tune", "zerolatency", 0);
+    //av_dict_set(&opt, "crf", "28", 0);
+
+    ret = avcodec_open2(codecContext, *codec, &opt);
+    av_dict_free(&opt);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to open video codec: {}", av_err2str(ret));
+        return -1;
+    }
+    stream->frame = alloc_frame(codecContext->pix_fmt, codecContext->width, codecContext->height);
+    if (!stream->frame)
+    {
+        spdlog::critical("Failed to initialize frame");
+        return -1;
+    }
+    stream->tmp_frame = nullptr;
+    if (codecContext->pix_fmt != AV_PIX_FMT_YUV420P)
+    {
+        stream->tmp_frame = alloc_frame(AV_PIX_FMT_YUV420P, codecContext->width, codecContext->height);
+        if (!stream->tmp_frame)
+        {
+            spdlog::critical("Failed to initialize temp frame");
+            return -1;
+        }
+    }
+
+    ret = avcodec_parameters_from_context(stream->stream->codecpar, codecContext);
+    if (ret < 0)
+    {
+        spdlog::critical("Failed to copy stream parameters");
+        return -1;
+    }
+
+    return 0;
+}
+
 int Muxor::close()
 {
     if (!outputContext)

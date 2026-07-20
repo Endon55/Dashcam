@@ -11,6 +11,8 @@ extern "C"
 #include <libavutil/samplefmt.h>
 #include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
+#include <libavcodec/defs.h>
+#include <libavutil/dict.h>
 }
 #include <mutex>
 #include <string>
@@ -45,9 +47,7 @@ private:
     struct OutputStream audio_stream;
     std::mutex mux_write_mutex;
 
-    const AVOutputFormat *fmt = nullptr;
     AVFormatContext *outputContext = nullptr;
-    bool initialized = false;
     bool has_audio;
 
 public:
@@ -58,7 +58,8 @@ public:
     int write_audio_frame(AVFrame *frame);
 
 private:
-    int add_stream(OutputStream *stream, AVFormatContext *fmtContext, const AVCodec **codec, enum AVCodecID codec_id, AVRational frameRate);
+     int add_video_stream(OutputStream *stream, AVFormatContext *fmtContext, const AVCodec **codec, AVRational frameRate, AVDictionary *opt_args);
+    int add_audio_stream(OutputStream *stream, AVFormatContext *fmtContext, const AVCodec **codec, enum AVCodecID codec_id, AVRational frameRate, AVDictionary *opt_args);
     int open_video(AVFormatContext *fmtContext, const AVCodec *codec, OutputStream *stream, AVDictionary *opt_args);
     int open_audio(AVFormatContext *fmtContext, const AVCodec *codec, OutputStream *stream, AVDictionary *opt_args);
     int write_frame(AVFormatContext *outputContext, AVCodecContext *codecContext, AVStream *stream, AVFrame *frame, AVPacket *packet);
