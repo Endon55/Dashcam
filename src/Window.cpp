@@ -1,4 +1,6 @@
 #include "Window.h"
+#include <SDL3/SDL_audio.h>
+#include <SDL3/SDL_init.h>
 #include <iostream>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
@@ -9,11 +11,32 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
 {
     // SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO))
+    if (!SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+    int device_count = 0;
+    SDL_AudioDeviceID *device = SDL_GetAudioPlaybackDevices(&device_count);
+    if(device != nullptr && device_count > 0)
+    {
+        if(!SDL_InitSubSystem(SDL_INIT_AUDIO))
+        {
+            SDL_Log("Couldn't initialize Audio Subsystem: %s", SDL_GetError());
+            return SDL_APP_FAILURE;
+        }
+
+        app_state->audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, app_state->audio_spec, NULL, NULL);
+
+        if (!app_state->audio_stream)
+        {
+            SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
+            return SDL_APP_FAILURE;
+        }
+        //SDL_ResumeAudioStreamDevice(app_state->audio_stream);
+    }
+
+
     float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     SDL_WindowFlags window_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_FULLSCREEN;
     app_state->window = SDL_CreateWindow("Dashcam", app_state->width, app_state->height, window_flags);
@@ -51,14 +74,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
     ImGui_ImplSDLRenderer3_Init(app_state->renderer);
 
     SDL_SetRenderLogicalPresentation(app_state->renderer, app_state->width, app_state->height, SDL_LOGICAL_PRESENTATION_DISABLED);
-    app_state->audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, app_state->audio_spec, NULL, NULL);
 
-    if (!app_state->audio_stream)
-    {
-        SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-    //SDL_ResumeAudioStreamDevice(app_state->audio_stream);
 
     return SDL_APP_CONTINUE;
 }

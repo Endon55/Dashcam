@@ -216,6 +216,7 @@ int Webcam::initFilterGraph(enum AVPixelFormat fmt)
 
 int Webcam::initVideo()
 {
+
     video = {};
     int ret = 0;
     video.stream_index = -1;
@@ -783,7 +784,7 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
         muxor->write_audio_frame(audio.frame);
     }
 
-    if (mute.load())
+    if (mute.load() || audioStream == nullptr)
     {
         av_frame_unref(audio.frame);
         av_frame_unref(audio.frame);
@@ -870,12 +871,7 @@ void Webcam::audioCaptureLoop()
 {
     audioThreadRunning.store(true);
     spdlog::info("Thread Started");
-    if(sdlAudioStream == nullptr)
-    {
-        spdlog::critical("Thread Terminated: Didn't initialize audio stream before trying to start the loop.");
-        audioThreadRunning.store(false);
-        return;
-    }
+
     while (!audioThreadStopRequested.load())
     {
         int ret = processAudioFrame(sdlAudioStream);
