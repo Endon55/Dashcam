@@ -9,7 +9,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
 {
     // SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
-    if (!SDL_Init(SDL_INIT_VIDEO))
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO))
     {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -51,23 +51,13 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
     ImGui_ImplSDLRenderer3_Init(app_state->renderer);
 
     SDL_SetRenderLogicalPresentation(app_state->renderer, app_state->width, app_state->height, SDL_LOGICAL_PRESENTATION_DISABLED);
+    app_state->audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, app_state->audio_spec, NULL, NULL);
 
-    // SDL_PIXELFORMAT_RGBX32
-    /* app_state->texture = SDL_CreateTexture(app_state->renderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, app_state->width, app_state->height);
-
-    if (app_state->texture == NULL)
-    {
-        SDL_Log("Couldn't create texture: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    } */
-
-    //app_state->audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, app_state->audio_spec, NULL, NULL);
-
-    /* if (!app_state->audio_stream)
+    if (!app_state->audio_stream)
     {
         SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
         return SDL_APP_FAILURE;
-    } */
+    }
     //SDL_ResumeAudioStreamDevice(app_state->audio_stream);
 
     return SDL_APP_CONTINUE;

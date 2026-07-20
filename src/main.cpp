@@ -1,3 +1,4 @@
+#include <SDL3/SDL_audio.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -77,6 +78,12 @@ int main(int argc, char **argv)
         .nb_cams = 0,
         .webcams = nullptr
     };
+
+    app_state->audio_spec = (SDL_AudioSpec*)dc_malloc(sizeof(SDL_AudioSpec));
+    app_state->audio_spec->format = SDL_AUDIO_S16LE;
+    app_state->audio_spec->channels = 2;
+    app_state->audio_spec->freq = 48000;
+
     ret = query_all_webcams(app_state);
     if (ret < 0)
     {

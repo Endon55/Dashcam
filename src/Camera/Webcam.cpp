@@ -9,6 +9,7 @@
 #include <string>
 #include <stdio.h>
 #include <chrono>
+#include <thread>
 #include <string>
 #include <stdio.h>
 #include <spdlog/spdlog.h>
@@ -765,114 +766,123 @@ int Webcam::processAudioFrame(SDL_AudioStream *audioStream)
         return 0;
     }
 
-    while (true)
+    ret = avcodec_receive_frame(audio.codecContext, audio.frame);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
     {
-        ret = avcodec_receive_frame(audio.codecContext, audio.frame);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-        {
-            break;
-        }
-        if (ret < 0)
-        {
-            spdlog::critical("Error while receiving frame from decoder: {}", av_err2str(ret));
-            av_packet_unref(audio.packet);
-            return -1;
-        }
-
-        if (videoPtsStartUs.load() != AV_NOPTS_VALUE)
-        {
-            muxor->write_audio_frame(audio.frame);
-        }
-
-        if (mute.load())
-        {
-            av_frame_unref(audio.frame);
-            continue;
-        }
-
-        int outChannels = audio.out_ch_layout.nb_channels > 0 ? audio.out_ch_layout.nb_channels : 2;
-        int dst_nb_samples = av_rescale_rnd(
-                swr_get_delay(audio.swr_ctx, audio.codecContext->sample_rate) + audio.frame->nb_samples,
-                audio.codecContext->sample_rate,
-                audio.codecContext->sample_rate,
-                AV_ROUND_UP);
-        if (dst_nb_samples <= 0)
-        {
-            av_frame_unref(audio.frame);
-            continue;
-        }
-
-        int requiredBufferSize = av_samples_get_buffer_size(nullptr, outChannels, dst_nb_samples, AV_SAMPLE_FMT_S16, 1);
-        if (requiredBufferSize < 0)
-        {
-            spdlog::critical("Failed to compute SDL output buffer size: {}", av_err2str(requiredBufferSize));
-            av_packet_unref(audio.packet);
-            return -1;
-        }
-
-        if (requiredBufferSize > audio.out_buf_size)
-        {
-            uint8_t *newBuffer = (uint8_t *)av_realloc(audio.out_buf, requiredBufferSize);
-            if (!newBuffer)
-            {
-                spdlog::critical("Failed to allocate SDL output audio buffer");
-                av_packet_unref(audio.packet);
-                return -1;
-            }
-            audio.out_buf = newBuffer;
-            audio.out_buf_size = requiredBufferSize;
-        }
-
-        uint8_t *outData[1] = {audio.out_buf};
-        int convertedSamples = swr_convert(audio.swr_ctx,
-                                           outData,
-                                           dst_nb_samples,
-                                           (const uint8_t **)audio.frame->extended_data,
-                                           audio.frame->nb_samples);
-        if (convertedSamples < 0)
-        {
-            spdlog::critical("Failed to resample audio for SDL playback: {}", av_err2str(convertedSamples));
-            av_packet_unref(audio.packet);
-            return -1;
-        }
-
-        int data_size = av_samples_get_buffer_size(nullptr, outChannels, convertedSamples, AV_SAMPLE_FMT_S16, 1);
-        if (data_size < 0)
-        {
-            spdlog::critical("Failed to compute SDL queued audio size: {}", av_err2str(data_size));
-            av_packet_unref(audio.packet);
-            return -1;
-        }
-
-        if (audioStream != nullptr)
-        {
-            if (!SDL_PutAudioStreamData(audioStream, audio.out_buf, data_size))
-            {
-                spdlog::warn("Failed to queue audio to SDL stream: {}", SDL_GetError());
-            }
-        }
-
-        av_frame_unref(audio.frame);
+        return -1;
+    }
+    if (ret < 0)
+    {
+        spdlog::critical("Error while receiving frame from decoder: {}", av_err2str(ret));
+        av_packet_unref(audio.packet);
+        return -1;
     }
 
+    if (videoPtsStartUs.load() != AV_NOPTS_VALUE)
+    {
+        muxor->write_audio_frame(audio.frame);
+    }
+
+    if (mute.load())
+    {
+        av_frame_unref(audio.frame);
+        av_frame_unref(audio.frame);
+        return 0;
+    }
+
+    int outChannels = audio.out_ch_layout.nb_channels > 0 ? audio.out_ch_layout.nb_channels : 2;
+    int dst_nb_samples = av_rescale_rnd(
+            swr_get_delay(audio.swr_ctx, audio.codecContext->sample_rate) + audio.frame->nb_samples,
+            audio.codecContext->sample_rate,
+            audio.codecContext->sample_rate,
+            AV_ROUND_UP);
+    if (dst_nb_samples <= 0)
+    {
+        av_frame_unref(audio.frame);
+        av_frame_unref(audio.frame);
+
+        return 0;
+    }
+
+    int requiredBufferSize = av_samples_get_buffer_size(nullptr, outChannels, dst_nb_samples, AV_SAMPLE_FMT_S16, 1);
+    if (requiredBufferSize < 0)
+    {
+        spdlog::critical("Failed to compute SDL output buffer size: {}", av_err2str(requiredBufferSize));
+        av_frame_unref(audio.frame);
+        av_packet_unref(audio.packet);
+        return -1;
+    }
+
+    if (requiredBufferSize > audio.out_buf_size)
+    {
+        uint8_t *newBuffer = (uint8_t *)av_realloc(audio.out_buf, requiredBufferSize);
+        if (!newBuffer)
+        {
+            spdlog::critical("Failed to allocate SDL output audio buffer"); 
+            av_frame_unref(audio.frame);
+            av_packet_unref(audio.packet);
+            return -1;
+        }
+        audio.out_buf = newBuffer;
+        audio.out_buf_size = requiredBufferSize;
+    }
+
+    uint8_t *outData[1] = {audio.out_buf};
+    int convertedSamples = swr_convert(audio.swr_ctx,
+            outData,
+            dst_nb_samples,
+            (const uint8_t **)audio.frame->extended_data,
+            audio.frame->nb_samples);
+    if (convertedSamples < 0)
+    {
+        spdlog::critical("Failed to resample audio for SDL playback: {}", av_err2str(convertedSamples));
+        av_frame_unref(audio.frame);
+        av_packet_unref(audio.packet);
+        return -1;
+    }
+
+    int data_size = av_samples_get_buffer_size(nullptr, outChannels, convertedSamples, AV_SAMPLE_FMT_S16, 1);
+    if (data_size < 0)
+    {
+        spdlog::critical("Failed to compute SDL queued audio size: {}", av_err2str(data_size));
+        av_frame_unref(audio.frame);
+        av_packet_unref(audio.packet);
+
+
+        return -1;
+    }
+
+    if (audioStream != nullptr)
+    {
+        if (!SDL_PutAudioStreamData(audioStream, audio.out_buf, data_size))
+        {
+            spdlog::warn("Failed to queue audio to SDL stream: {}", SDL_GetError());
+        }
+    }
+
+    av_frame_unref(audio.frame);
     av_packet_unref(audio.packet);
+
     return 0;
 }
 
 void Webcam::audioCaptureLoop()
 {
     audioThreadRunning.store(true);
-    if(audioStreamTarget == nullptr)
+    spdlog::info("Thread Started");
+    if(sdlAudioStream == nullptr)
     {
-        spdlog::critical("Didn't initialize audio stream before trying to start the loop.");
-        return ;
+        spdlog::critical("Thread Terminated: Didn't initialize audio stream before trying to start the loop.");
+        audioThreadRunning.store(false);
+        return;
     }
     while (!audioThreadStopRequested.load())
     {
-        int ret = processAudioFrame(audioStreamTarget);
-        if (ret < 0)
+        int ret = processAudioFrame(sdlAudioStream);
+        //-1s are something weird happened but its not a show stopper
+        if (ret < -1)
         {
-            spdlog::critical("Audio capture loop failed");
+            spdlog::critical("Thread Terminated: Audio capture loop failed");
             break;
         }
         //no frames, sleep for a sec(micro)
@@ -881,7 +891,7 @@ void Webcam::audioCaptureLoop()
             std::this_thread::sleep_for(std::chrono::microseconds(10));
         }
     }
-
+    spdlog::info("Audio Capture Loop Finished");
     audioThreadRunning.store(false);
 }
 
@@ -892,21 +902,36 @@ int Webcam::startAudioCapture(SDL_AudioStream *audioStream)
         return 0;
     }
 
-    audioStreamTarget = audioStream;
+    sdlAudioStream = audioStream;
     audioThreadStopRequested.store(false);
     audioThread = std::thread(&Webcam::audioCaptureLoop, this);
 
     return 0;
 }
 
+auto max_wait_fallback = std::chrono::seconds(3);
+
 int Webcam::stopAudioCapture()
 {
     audioThreadStopRequested.store(true);
+    auto start = std::chrono::steady_clock::now();
+
+    //force the main thread to wait until the thread has finished executing.
+    while(audioThreadRunning.load())
+    {
+        if(std::chrono::steady_clock::now() - start > max_wait_fallback)
+        {
+            spdlog::critical("Audio thread is on the lam, not waiting any longer");
+            break;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     if (audioThread.joinable())
     {
         audioThread.join();
     }
-    audioStreamTarget = nullptr;
+    sdlAudioStream = nullptr;
     return 0;
 }
 
@@ -914,22 +939,6 @@ int Webcam::close()
 {
     int ret = 0;
     stopAudioCapture();
-
-    int videoRet = closeVideo();
-    if (videoRet < 0)
-    {
-        spdlog::critical("Failed to close webcam video");
-        ret = videoRet;
-    }
-    int audioRet = closeAudio();
-    if (audioRet < 0)
-    {
-        spdlog::critical("Failed to close webcam audio");
-        if (ret == 0)
-        {
-            ret = audioRet;
-        }
-    }
     if (muxor != nullptr)
     {
         int muxorRet = muxor->close();
@@ -946,6 +955,22 @@ int Webcam::close()
         muxor = nullptr;
     }
 
+
+    int videoRet = closeVideo();
+    if (videoRet < 0)
+    {
+        spdlog::critical("Failed to close webcam video");
+        ret = videoRet;
+    }
+    int audioRet = closeAudio();
+    if (audioRet < 0)
+    {
+        spdlog::critical("Failed to close webcam audio");
+        if (ret == 0)
+        {
+            ret = audioRet;
+        }
+    }
     return ret;
 }
 

@@ -96,7 +96,7 @@ private:
     std::thread audioThread;
     std::atomic<bool> audioThreadRunning{false};
     std::atomic<bool> audioThreadStopRequested{false};
-    SDL_AudioStream *audioStreamTarget = nullptr;
+    SDL_AudioStream *sdlAudioStream = nullptr;
     std::atomic<int64_t> videoPtsStartUs{AV_NOPTS_VALUE};
     std::atomic<bool> mute{true};
 };
