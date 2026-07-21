@@ -1,5 +1,3 @@
-
-
 Add more robust GOP(Group of Pictures) options, right now Im maximizing compressibility though that might not be ideal in all circumstances.
     Also look more into keyint_min/max and min/max b_frames.
     Also add the filter pipeline for automatically determining scene changes and new i_frame placement.
@@ -13,7 +11,8 @@ Add automatic window snapping based on number of cameras.
 Add video playback.
 Add video compression. Maybe check how much cpu is available and use some of it to re-compress past videos.
 Add timestamp info to video stream.
-Probably wise to add each video stream to it's own thread as well.
+
+
 
 
 Settings
@@ -25,3 +24,9 @@ Camera - Settings
     Add a toggle for recording audio at all
 
 Then reload the cameras with the new settings.
+
+
+--Possible Features--
+Add support for distance sensors and maybe others. Essentially a proximity sensor on modern cars.
+Maybe lidar support
+
