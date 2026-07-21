@@ -1,0 +1,22 @@
+SPD Log Documentation
+
+https://github.com/gabime/spdlog
+
+------HW------
+
+hw(hardware?) is the way we reference an audio device on linux. an hw command to alsa might look something like "hw:0,0" or "hw:x,y", the first value x is the card number associated with the device, kinda like which folder is it in, then the second value y is the specific device on that card you want to use.
+
+
+------When dealing with udev/libudev------
+
+running the $udevadm monitor
+will give you a real time update for usb device changes, which is helpful for narrowing down details about a specific device.
+This can also be used to find what sub directory a device is in for example
+
+KERNEL[2793.210161] add      /devices/pci0000:00/0000:00:14.0/usb1/1-11/1-11.4/1-11.4.3/1-11.4.3:1.0/video4linux/video2 (video4linux)
+
+plugging in a webcam yields like 50 similar lines but parsing through, I was able to discover that (video4linux) is a valid subtag and filtered for it accordingly. Same with (sound) on a similar line, this allows me to filter for the audio and video device hooks that ill need later in the program.
+
+$lshw 
+
+is another interesting command, it can sometimes benefit from running with sudo privileges(which dumps significantly more system info) it will dump a whole lot of information about every connected device, including the subtags but its much more cumbersome to parse.

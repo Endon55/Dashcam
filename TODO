@@ -1,7 +1,27 @@
-Then reload the cameras with the new settings.
 
 
 Add more robust GOP(Group of Pictures) options, right now Im maximizing compressibility though that might not be ideal in all circumstances.
     Also look more into keyint_min/max and min/max b_frames.
     Also add the filter pipeline for automatically determining scene changes and new i_frame placement.
     Also play around with global_quality to find the optimal settings
+
+
+Add automatic window snapping based on number of cameras.
+    Add muting to each window.
+    
+
+Add video playback.
+Add video compression. Maybe check how much cpu is available and use some of it to re-compress past videos.
+Add timestamp info to video stream.
+Probably wise to add each video stream to it's own thread as well.
+
+
+Settings
+    
+
+Camera - Settings
+    Add option to record in a raw yuv format(and probably add some warnings, about increased power use and usb throughput for multi-cam setups.
+    Add a toggle for displaying video in sdl
+    Add a toggle for recording audio at all
+
+Then reload the cameras with the new settings.

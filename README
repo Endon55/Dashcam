@@ -1,57 +1,16 @@
-To build for the first time you must run
-    cmake --preset=default
-first.
+This is a project that aims to remove the complexity(LOL) from buying a dashcam. The market is flooded with offerings at all price points and walled garden ecosystems that were at least for me, confusing to navigate.
 
-To cross compile for aarch64 you must install an arm c and c++ compiler
-    sudo apt install gcc-aarch64-linux-gnu
-    sudo apt install g++-aarch64-linux-gnu
+So here we are, the goal of this project is to make an open source Dashcam solution using a raspberry pi and off the shelf webcams in an interface that just works. 
 
+I've tried to make it as easy as possible to build this project from source, you can test it on your local machine, but it is advised that you build the project directly on your raspberry pi.
 
-To then build the executable run
-    cmake --build build/debug
-Telling the compiler to build the project in the build dir
+1. clone the repository
+2. run the init-system.sh script. Feel free to audit this, its primary purpose is to install all the dependencies that this project requires. The major one being VCPKG, which also gets configured.
+3. That's it. The script will also build the project at the end and store it in 
+    {project_root}/build/debug
+    And you can execute it by running ./{project_root}/build/debug/src/Dashcam
 
-//Required for ffmpeg
-    sudo apt install nasm
+If you run into any issues please report it at
+    https://github.com/Endon55/Dashcam/issues
 
-Ninja is required for building the base project
-    sudo apt install ninja-build
-
-These are the packages needed to build SDL3
-    sudo apt install autoconf autoconf-archive automake libtool
-    sudo apt-get install libxtst-dev
-    sudo apt install python3.12-venv
-
-
-Might need
-    sudo apt install xsltproc
-
-
-
-ffplay -f video4linux2 -i -pixel_format mjpeg -video_size 3840x2160 /dev/video0
-ffplay -f video4linux2 -i -pixel_format mjpeg -video_size 1280x960 /dev/video0
-ffplay -f video4linux2 -i /dev/video0
-
-
-SPD Log Documentation
-
-https://github.com/gabime/spdlog
-
-------HW------
-
-hw(hardware?) is the way we reference an audio device on linux. an hw command to alsa might look something like "hw:0,0" or "hw:x,y", the first value x is the card number associated with the device, kinda like which folder is it in, then the second value y is the specific device on that card you want to use.
-
-
-------When dealing with udev/libudev------
-
-running the $udevadm monitor
-will give you a real time update for usb device changes, which is helpful for narrowing down details about a specific device.
-This can also be used to find what sub directory a device is in for example
-
-KERNEL[2793.210161] add      /devices/pci0000:00/0000:00:14.0/usb1/1-11/1-11.4/1-11.4.3/1-11.4.3:1.0/video4linux/video2 (video4linux)
-
-plugging in a webcam yields like 50 similar lines but parsing through, I was able to discover that (video4linux) is a valid subtag and filtered for it accordingly. Same with (sound) on a similar line, this allows me to filter for the audio and video device hooks that ill need later in the program.
-
-$lshw 
-
-is another interesting command, it can sometimes benefit from running with sudo privileges(which dumps significantly more system info) it will dump a whole lot of information about every connected device, including the subtags but its much more cumbersome to parse.
+Or if you have ideas to improve the software feel free to leave them as well.
