@@ -44,7 +44,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(tomlplusplus REQUIRED)
 find_package(ALSA REQUIRED)
-
+find_package(GTest CONFIG REQUIRED)
 # FFmpeg uses pkg-config
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
@@ -59,6 +59,8 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
     x264
 )
 
+enable_testing()
+include(GoogleTest)
+
 add_subdirectory(src)
-
-
+add_subdirectory(test)

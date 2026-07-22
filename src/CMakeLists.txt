@@ -27,7 +27,9 @@ memory.cpp
 
 
 add_library(source ${sources})
+target_include_directories(source PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(source PRIVATE libjpeg-turbo::turbojpeg-static SDL3::SDL3 imgui::imgui)
+target_link_libraries(source PUBLIC spdlog::spdlog)
 target_link_libraries(source PUBLIC udev)
 
 target_link_libraries(Dashcam PUBLIC udev)
@@ -43,6 +45,7 @@ libjpeg-turbo::turbojpeg-static
 PkgConfig::FFMPEG
 imgui::imgui
 tomlplusplus::tomlplusplus
+GTest::gtest
 camera 
 source
 )

@@ -21,6 +21,7 @@
     "sdl3",
     "sdl3-image",
     "spdlog",
-    "tomlplusplus"
+    "tomlplusplus",
+    "gtest"
   ]
 }
