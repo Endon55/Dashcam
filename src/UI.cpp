@@ -1,16 +1,19 @@
 #include "UI.h"
+#include <imgui.h>
 #include <string>
 #include <imgui_internal.h>
 #include "Camera/Camera.h"
 #include "Config.h"
 #include "Settings.h"
+#include "State.h"
 #include "Utils.h"
+#include "math.h"
 
 static bool settings_open = false;
 static bool settings_modified = false;
 static bool cam_config_modified = false;
 void createGUI(AppState *app_state)
-{
+{     
     if (ImGui::BeginMainMenuBar())
     {
         if (ImGui::BeginMenu("File"))
@@ -29,48 +32,102 @@ void createGUI(AppState *app_state)
             Settings::setMute(mute);
         }
         ImGui::EndMainMenuBar();
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImVec2 pos = viewport->Pos;
+        pos.y += ImGui::GetFrameHeight();
+        ImGui::SetNextWindowSize(viewport->Size);
+        ImGui::SetNextWindowPos(pos);
+        if(ImGui::Begin("Camera Container"))
+        {
+            create_cam_windows(app_state);
+        }
+        ImGui::End();
+
     }
+
     if (settings_open)
     {
         createSettingsMenu(app_state);
     }
-    for (int i = 0; i < app_state->nb_cams; i++)
-    {
-        snprintf((char *)&cam_name, sizeof(cam_name), "Camera %d", i);
-        ImGui::Begin(cam_name);
-
-        ImVec2 pos = ImGui::GetWindowPos();
-        ImVec2 size = ImGui::GetWindowSize();
-
-        ImGui::Text("window pos %.1f %.1f", pos.x, pos.y);
-        ImGui::Text("window size %.1f %.1f", size.x, size.y);
-
-        ImVec2 avail = ImGui::GetContentRegionAvail();
-        if (avail.x > 1.0f && avail.y > 1.0f && app_state != nullptr && app_state->cam_textures[i] != NULL)
-        {
-            float videoAspect = static_cast<float>(app_state->width) / static_cast<float>(app_state->height);
-            float availAspect = avail.x / avail.y;
-
-            ImVec2 imageSize = avail;
-            if (availAspect > videoAspect)
-            {
-                imageSize.x = avail.y * videoAspect;
-            }
-            else
-            {
-                imageSize.y = avail.x / videoAspect;
-            }
-
-            float xOffset = (avail.x - imageSize.x) * 0.5f;
-            float yOffset = (avail.y - imageSize.y) * 0.5f;
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xOffset);
-            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yOffset);
-            ImGui::Image((ImTextureID)app_state->cam_textures[i], imageSize);
-        }
-
-        ImGui::End();
-    }
+   
 }
+
+static int camera_rows = 0;
+static int camera_columns = 0;
+void set_window_bounding(AppState *app_state, int index)
+{
+    ImVec2 size = ImGui::GetContentRegionAvail();
+    spdlog::debug("Window Size: {}x{}", size.x, size.y);
+    float row_height = app_state->height / camera_rows;
+    float col_width = app_state->width  / camera_columns;
+    //First row will by definition always have the max number of cams
+    ImGui::SetNextWindowPos(ImVec2((index % camera_columns) * col_width, floor(index % camera_rows) * row_height));
+    ImGui::SetNextWindowSize(ImVec2(col_width, row_height));
+}
+
+void recalculate_windows(int nb_cams)
+{
+    spdlog::debug("Recalculating camera window positions");
+    if(nb_cams <= 2)
+    {
+        camera_rows = 1;
+        camera_columns = nb_cams;
+
+        cam_number = nb_cams;
+        return;
+    }
+
+    float cols = ceil(sqrt((float) nb_cams));
+    camera_rows = (int) cols;
+    camera_columns = camera_rows;
+}
+
+bool create_cam_windows(AppState *state)
+{
+    if(cam_number != state->nb_cams)
+    {
+       recalculate_windows(state->nb_cams); 
+    }
+    
+    for (int i = 0; i < state->nb_cams; i++)
+    {
+        set_window_bounding(state, i);
+        snprintf((char *)&cam_name, sizeof(cam_name), "Camera %d", i);
+        if(ImGui::BeginChild(cam_name, ImVec2(0,0), ImGuiChildFlags_Border))
+        {
+            ImVec2 pos = ImGui::GetWindowPos();
+            ImVec2 size = ImGui::GetWindowSize();
+
+
+            ImVec2 avail = ImGui::GetContentRegionAvail();
+            if (avail.x > 1.0f && avail.y > 1.0f && state != nullptr && state->cam_textures[i] != NULL)
+            {
+                float videoAspect = static_cast<float>(state->width) / static_cast<float>(state->height);
+                float availAspect = avail.x / avail.y;
+
+                ImVec2 imageSize = avail;
+                if (availAspect > videoAspect)
+                {
+                    imageSize.x = avail.y * videoAspect;
+                }
+                else
+                {
+                    imageSize.y = avail.x / videoAspect;
+                }
+
+                float xOffset = (avail.x - imageSize.x) * 0.5f;
+                float yOffset = (avail.y - imageSize.y) * 0.5f;
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xOffset);
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yOffset);
+                ImGui::Image((ImTextureID)state->cam_textures[i], imageSize);
+            }
+
+        }
+        ImGui::EndChild();
+    }
+    return true;
+}
+
 
 const capture_mode *new_mode;
 static vector<const capture_mode *> selected_modes(MAX_CAMS);

@@ -972,15 +972,11 @@ int Webcam::close()
 
 int Webcam::closeVideo()
 {
+    //video.codecParams don't need to be freed since we are just using a reference pointer, we didn't allocate it manually.
     if (video.fmtContext != nullptr)
     {
         avformat_close_input(&video.fmtContext);
         video.fmtContext = nullptr;
-    }
-    if(video.codecParams != nullptr)
-    {
-        avcodec_parameters_free(&video.codecParams);
-        video.codecParams = nullptr;
     }
     if (video.codecContext != nullptr)
     {

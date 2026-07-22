@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 
     /* ****************************Main Loop**************************** */
     spdlog::debug("Starting app core loop");
-    while (count-- > 0)
+    while (true)
     {
         SDL_Event ev;
         while (SDL_PollEvent(&ev))

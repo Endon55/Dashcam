@@ -5,6 +5,8 @@
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
+#include <spdlog/spdlog.h>
+
 using namespace std;
 
 SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
@@ -36,7 +38,6 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
         //SDL_ResumeAudioStreamDevice(app_state->audio_stream);
     }
 
-
     float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     SDL_WindowFlags window_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_FULLSCREEN;
     app_state->window = SDL_CreateWindow("Dashcam", app_state->width, app_state->height, window_flags);
@@ -48,6 +49,8 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
     SDL_SetWindowFullscreenMode(app_state->window, NULL);
     SDL_SetWindowFullscreen(app_state->window, true);
 
+    SDL_GetWindowSize(app_state->window, &app_state->width, &app_state->height);
+    spdlog::debug("Window Size {}x{}",app_state->width, app_state->height);
     app_state->renderer = SDL_CreateRenderer(app_state->window, NULL);
     if (app_state->renderer == NULL)
     {
