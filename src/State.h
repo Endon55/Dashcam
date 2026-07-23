@@ -7,6 +7,7 @@
 #include <SDL3/SDL_iostream.h>
 #include "Camera/Camera.h"
 #include "Camera/Webcam.h"
+#include "types.h"
 
 struct AppState
 {
@@ -15,8 +16,7 @@ struct AppState
     SDL_Event *event;
     SDL_AudioSpec *audio_spec;
     SDL_AudioStream *audio_stream;
-    int width;
-    int height;
+    vec2i window_size;
     int pitch = -1;
     SDL_Texture** cam_textures;
     cam_device** devices;

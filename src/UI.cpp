@@ -52,17 +52,16 @@ void createGUI(AppState *app_state)
    
 }
 
-static int camera_rows = 0;
-static int camera_columns = 0;
+static vec2i cam_layout = {0,0};
+static vec2 layout_size = {0.0, 0.0};
 void set_window_bounding(AppState *app_state, int index)
 {
     ImVec2 size = ImGui::GetContentRegionAvail();
-    spdlog::debug("Window Size: {}x{}", size.x, size.y);
-    float row_height = app_state->height / camera_rows;
-    float col_width = app_state->width  / camera_columns;
+    layout_size.y = app_state->window_size.y / (float)cam_layout.y;
+    layout_size.x = app_state->window_size.x  / (float)cam_layout.x;
     //First row will by definition always have the max number of cams
-    ImGui::SetNextWindowPos(ImVec2((index % camera_columns) * col_width, floor(index % camera_rows) * row_height));
-    ImGui::SetNextWindowSize(ImVec2(col_width, row_height));
+        ImGui::SetNextWindowPos(ImVec2((index % cam_layout.x) * layout_size.x, floor(index % cam_layout.y) * layout_size.y));
+    ImGui::SetNextWindowSize(ImVec2(layout_size.x, layout_size.y));
 }
 
 void recalculate_windows(int nb_cams)
@@ -70,16 +69,16 @@ void recalculate_windows(int nb_cams)
     spdlog::debug("Recalculating camera window positions");
     if(nb_cams <= 2)
     {
-        camera_rows = 1;
-        camera_columns = nb_cams;
+        cam_layout.y = 1;
+        cam_layout.x = nb_cams;
 
         cam_number = nb_cams;
         return;
     }
 
     float cols = ceil(sqrt((float) nb_cams));
-    camera_rows = (int) cols;
-    camera_columns = camera_rows;
+    cam_layout.y = (int) cols;
+    cam_layout.x = cam_layout.y;
 }
 
 bool create_cam_windows(AppState *state)
@@ -93,16 +92,27 @@ bool create_cam_windows(AppState *state)
     {
         set_window_bounding(state, i);
         snprintf((char *)&cam_name, sizeof(cam_name), "Camera %d", i);
-        if(ImGui::BeginChild(cam_name, ImVec2(0,0), ImGuiChildFlags_Border))
+        if(ImGui::BeginChild(cam_name, ImVec2(0,0), ImGuiChildFlags_Border, ImGuiWindowFlags_MenuBar))
         {
-            ImVec2 pos = ImGui::GetWindowPos();
-            ImVec2 size = ImGui::GetWindowSize();
 
+            if(ImGui::BeginMenuBar())
+            {
+
+                if(ImGui::BeginMenu("File"))
+                {
+                    if(ImGui::MenuItem("Test"))
+                    {
+
+                    }
+                    ImGui::EndMenu();
+                }
+                ImGui::EndMenuBar();
+            }
 
             ImVec2 avail = ImGui::GetContentRegionAvail();
             if (avail.x > 1.0f && avail.y > 1.0f && state != nullptr && state->cam_textures[i] != NULL)
             {
-                float videoAspect = static_cast<float>(state->width) / static_cast<float>(state->height);
+                float videoAspect = static_cast<float>(layout_size.x) / static_cast<float>(layout_size.y);
                 float availAspect = avail.x / avail.y;
 
                 ImVec2 imageSize = avail;
@@ -307,7 +317,4 @@ void createSettingsMenu(AppState *app_state)
 }
 
 
-int add(int x, int y)
-{
-    return x + y;
-}
+

@@ -1,7 +1,6 @@
 #include "Window.h"
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_init.h>
-#include <iostream>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
@@ -15,7 +14,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
 
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
-        SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
+        spdlog::critical("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
     int device_count = 0;
@@ -24,7 +23,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
     {
         if(!SDL_InitSubSystem(SDL_INIT_AUDIO))
         {
-            SDL_Log("Couldn't initialize Audio Subsystem: %s", SDL_GetError());
+            spdlog::critical("Couldn't initialize Audio Subsystem: %s", SDL_GetError());
             return SDL_APP_FAILURE;
         }
 
@@ -32,7 +31,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
 
         if (!app_state->audio_stream)
         {
-            SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
+            spdlog::critical("Couldn't create audio stream: %s", SDL_GetError());
             return SDL_APP_FAILURE;
         }
         //SDL_ResumeAudioStreamDevice(app_state->audio_stream);
@@ -40,7 +39,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
 
     float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     SDL_WindowFlags window_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_FULLSCREEN;
-    app_state->window = SDL_CreateWindow("Dashcam", app_state->width, app_state->height, window_flags);
+    app_state->window = SDL_CreateWindow("Dashcam", app_state->window_size.x, app_state->window_size.y, window_flags);
     if (app_state->window == NULL)
     {
         SDL_Log("Couldn't create window: %s", SDL_GetError());
@@ -49,8 +48,8 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
     SDL_SetWindowFullscreenMode(app_state->window, NULL);
     SDL_SetWindowFullscreen(app_state->window, true);
 
-    SDL_GetWindowSize(app_state->window, &app_state->width, &app_state->height);
-    spdlog::debug("Window Size {}x{}",app_state->width, app_state->height);
+    SDL_GetWindowSize(app_state->window, &app_state->window_size.x, &app_state->window_size.y);
+    spdlog::debug("Window Size {}x{}",app_state->window_size.x, app_state->window_size.y);
     app_state->renderer = SDL_CreateRenderer(app_state->window, NULL);
     if (app_state->renderer == NULL)
     {
@@ -76,7 +75,7 @@ SDL_AppResult SDL_init(AppState *app_state, int argc, char **argv)
     ImGui_ImplSDL3_InitForSDLRenderer(app_state->window, app_state->renderer);
     ImGui_ImplSDLRenderer3_Init(app_state->renderer);
 
-    SDL_SetRenderLogicalPresentation(app_state->renderer, app_state->width, app_state->height, SDL_LOGICAL_PRESENTATION_DISABLED);
+    SDL_SetRenderLogicalPresentation(app_state->renderer, app_state->window_size.x, app_state->window_size.y, SDL_LOGICAL_PRESENTATION_DISABLED);
 
 
     return SDL_APP_CONTINUE;
@@ -102,8 +101,8 @@ SDL_AppResult SDL_event(AppState *app_state, SDL_Event *event)
     }
     if (event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
     {
-        SDL_GetWindowSizeInPixels(app_state->window, &app_state->width, &app_state->height);
-        cout << "w:" << app_state->width << " h:" << app_state->height << endl;
+            SDL_GetWindowSizeInPixels(app_state->window, &app_state->window_size.x, &app_state->window_size.y);
+            spdlog::debug("new Window Size {}x{}",app_state->window_size.x, app_state->window_size.y);
     }
     ImGui_ImplSDL3_ProcessEvent(event);
     if (event->type == SDL_EVENT_KEY_DOWN && !event->key.repeat)

@@ -23,6 +23,7 @@ UI.h
 UI.cpp
 memory.h
 memory.cpp
+types.h
 )
 
 
